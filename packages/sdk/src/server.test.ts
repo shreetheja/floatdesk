@@ -2,14 +2,14 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { createSupportServer } from './server.js';
 import { MemoryAdapter } from './storage/memory.js';
-import { Router } from 'express';
-import type { ChannelAdapter, StorageAdapter } from './types.js';
+import type { ChannelAdapter } from './types.js';
 
 const stubChannel: ChannelAdapter = {
   name: 'stub',
+  webhookPath: '/webhook/stub',
   async postTicket() { return 'ref-123'; },
   async postReply() { /* noop */ },
-  getWebhookRouter(_storage: StorageAdapter) { return Router(); },
+  async handleWebhook() { return { status: 200, body: { ok: true } }; },
 };
 
 describe('createSupportServer', () => {

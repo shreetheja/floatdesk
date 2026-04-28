@@ -1,3 +1,7 @@
 node_modules/
 dist/
 .turbo/
+
+# Local test app — never commit
+test-app/node_modules/
+test-app/.env

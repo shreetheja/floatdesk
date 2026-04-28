@@ -1,0 +1,17 @@
+{
+  "name": "@floatdesk/test-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx index.ts"
+  },
+  "dependencies": {
+    "@floatdesk/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

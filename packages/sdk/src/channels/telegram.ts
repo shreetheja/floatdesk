@@ -1,15 +1,14 @@
 import TelegramBot from 'node-telegram-bot-api';
-import { Router, type Request, type Response } from 'express';
-import type { ChannelAdapter, StorageAdapter, Ticket } from '../types.js';
+import type { ChannelAdapter, StorageAdapter, Ticket, WebhookRequest, WebhookResponse } from '../types.js';
 
 export interface TelegramChannelOptions {
   botToken: string;
   chatId: string | number;
-  webhookUrl?: string;
 }
 
 export class TelegramChannel implements ChannelAdapter {
   readonly name = 'telegram';
+  readonly webhookPath = '/webhook/telegram';
   private bot: TelegramBot;
   private chatId: string | number;
 
@@ -38,38 +37,31 @@ export class TelegramChannel implements ChannelAdapter {
     });
   }
 
-  getWebhookRouter(storage: StorageAdapter): Router {
-    const router = Router();
-
-    router.post('/webhook/telegram', async (req: Request, res: Response) => {
-      res.status(200).send('ok');
-
-      const update = req.body as {
-        message?: {
-          message_id: number;
-          reply_to_message?: { message_id: number };
-          from?: { first_name?: string; username?: string };
-          text?: string;
-        };
+  async handleWebhook(req: WebhookRequest, storage: StorageAdapter): Promise<WebhookResponse> {
+    const update = req.body as {
+      message?: {
+        message_id: number;
+        reply_to_message?: { message_id: number };
+        from?: { first_name?: string; username?: string };
+        text?: string;
       };
+    };
 
-      const msg = update.message;
-      if (!msg?.reply_to_message || !msg.text) return;
+    const msg = update.message;
+    if (!msg?.reply_to_message || !msg.text) return { status: 200, body: 'ok' };
 
-      const replyToId = String(msg.reply_to_message.message_id);
-      const ticket = await storage.findTicketByChannelRef(replyToId);
-      if (!ticket) return;
+    const replyToId = String(msg.reply_to_message.message_id);
+    const ticket = await storage.findTicketByChannelRef(replyToId);
+    if (!ticket) return { status: 200, body: 'ok' };
 
-      const senderName = msg.from?.first_name ?? msg.from?.username ?? 'Agent';
-
-      await storage.appendMessage(ticket.id, {
-        ticketId: ticket.id,
-        senderType: 'agent',
-        senderName,
-        body: msg.text,
-      });
+    const senderName = msg.from?.first_name ?? msg.from?.username ?? 'Agent';
+    await storage.appendMessage(ticket.id, {
+      ticketId: ticket.id,
+      senderType: 'agent',
+      senderName,
+      body: msg.text,
     });
 
-    return router;
+    return { status: 200, body: 'ok' };
   }
 }

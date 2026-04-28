@@ -27,11 +27,26 @@ export interface StorageAdapter {
   getMessages(ticketId: string): Promise<Message[]>;
 }
 
+/** Framework-agnostic webhook request — populate from Express, Hono, or any other framework. */
+export interface WebhookRequest {
+  headers: Record<string, string | string[] | undefined>;
+  body: unknown;
+  rawBody: string;
+}
+
+/** Framework-agnostic webhook response returned by channel adapters. */
+export interface WebhookResponse {
+  status: number;
+  body: unknown;
+}
+
 export interface ChannelAdapter {
   readonly name: string;
+  /** Path this channel expects its webhook on, e.g. '/webhook/slack'. */
+  readonly webhookPath: string;
   postTicket(ticket: Ticket, mediaUrl?: string): Promise<string>;
   postReply(channelRef: string, text: string): Promise<void>;
-  getWebhookRouter(storage: StorageAdapter): import('express').Router;
+  handleWebhook(req: WebhookRequest, storage: StorageAdapter): Promise<WebhookResponse>;
 }
 
 export interface MediaProvider {

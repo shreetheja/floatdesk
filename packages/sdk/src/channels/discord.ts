@@ -1,6 +1,5 @@
 import { Client, GatewayIntentBits, Partials, Events, type Message as DMessage } from 'discord.js';
-import { Router, type Request, type Response } from 'express';
-import type { ChannelAdapter, StorageAdapter, Ticket } from '../types.js';
+import type { ChannelAdapter, StorageAdapter, Ticket, WebhookRequest, WebhookResponse } from '../types.js';
 
 export interface DiscordChannelOptions {
   botToken: string;
@@ -9,6 +8,7 @@ export interface DiscordChannelOptions {
 
 export class DiscordChannel implements ChannelAdapter {
   readonly name = 'discord';
+  readonly webhookPath = '/webhook/discord';
   private client: Client;
   private channelId: string;
   private storage?: StorageAdapter;
@@ -25,13 +25,9 @@ export class DiscordChannel implements ChannelAdapter {
     });
 
     this.client.on(Events.MessageCreate, async (msg: DMessage) => {
-      if (msg.author.bot) return;
-      if (!msg.reference?.messageId) return;
-      if (!this.storage) return;
-
+      if (msg.author.bot || !msg.reference?.messageId || !this.storage) return;
       const ticket = await this.storage.findTicketByChannelRef(msg.reference.messageId);
       if (!ticket) return;
-
       await this.storage.appendMessage(ticket.id, {
         ticketId: ticket.id,
         senderType: 'agent',
@@ -50,8 +46,8 @@ export class DiscordChannel implements ChannelAdapter {
     const emoji = ticket.type === 'bug' ? '🐛' : '✨';
     const label = ticket.type === 'bug' ? 'Bug' : 'Feature';
 
-    const embeds = [
-      {
+    const sent = await (channel as import('discord.js').TextChannel).send({
+      embeds: [{
         title: `${emoji} ${label}: ${ticket.title}`,
         description: ticket.description,
         fields: [
@@ -61,10 +57,8 @@ export class DiscordChannel implements ChannelAdapter {
           ...(mediaUrl ? [{ name: 'Media', value: mediaUrl }] : []),
         ],
         color: ticket.type === 'bug' ? 0xff4444 : 0x6b9a00,
-      },
-    ];
-
-    const sent = await (channel as import('discord.js').TextChannel).send({ embeds });
+      }],
+    });
     return sent.id;
   }
 
@@ -75,12 +69,10 @@ export class DiscordChannel implements ChannelAdapter {
     await original.reply({ content: text });
   }
 
-  getWebhookRouter(storage: StorageAdapter): Router {
+  // Discord replies come through the gateway (bot WebSocket), not an HTTP webhook.
+  // This route exists only for structural symmetry; storage is wired via the constructor listener.
+  async handleWebhook(_req: WebhookRequest, storage: StorageAdapter): Promise<WebhookResponse> {
     this.storage = storage;
-    const router = Router();
-    router.post('/webhook/discord', (_req: Request, res: Response) => {
-      res.status(200).send('ok');
-    });
-    return router;
+    return { status: 200, body: 'ok' };
   }
 }

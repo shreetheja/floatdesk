@@ -1,5 +1,13 @@
-// Server factory
+// Express convenience wrapper
 export { createSupportServer } from './server.js';
+
+// Express adapter (use this if you want just the Router, not a full app)
+export { createExpressRouter } from './adapters/express.js';
+export type { ExpressAdapterOptions } from './adapters/express.js';
+
+// Core service functions — framework-agnostic, use with Hono, Fastify, or anything else
+export { submitTicket, getTicketMessages, addReply, getHealth } from './core/ticket-service.js';
+export type { ServiceResult, FileInput } from './core/ticket-service.js';
 
 // Types / interfaces
 export type {
@@ -9,6 +17,8 @@ export type {
   ChannelAdapter,
   MediaProvider,
   SupportServerOptions,
+  WebhookRequest,
+  WebhookResponse,
 } from './types.js';
 
 // Storage adapters
