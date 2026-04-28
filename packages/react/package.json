@@ -1,6 +1,6 @@
 {
   "name": "@floatdesk/react",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Drop-in React support widget — floating bug-report button with screenshot capture, screen recording, and live chat thread view",
   "type": "module",
   "license": "MIT",
