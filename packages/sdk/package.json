@@ -25,6 +25,9 @@
     "sdk",
     "widget"
   ],
+   "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
