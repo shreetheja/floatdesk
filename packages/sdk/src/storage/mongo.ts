@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import mongoose, { Schema, type Document } from 'mongoose';
 import type { StorageAdapter, Ticket, Message } from '../types.js';
 
-interface TicketDoc extends Document {
+interface TicketDoc {
   _id: string;
   title: string;
   description: string;
@@ -14,7 +14,7 @@ interface TicketDoc extends Document {
   mediaUrl?: string;
 }
 
-interface MessageDoc extends Document {
+interface MessageDoc {
   _id: string;
   ticketId: string;
   senderType: string;
