@@ -1,10 +1,37 @@
 {
   "name": "@floatdesk/react",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "Drop-in React support widget — floating bug-report button with screenshot capture, screen recording, and live chat thread view",
   "type": "module",
-  "exports": {
-    ".": { "import": "./dist/index.js", "types": "./dist/index.d.ts" }
+  "license": "MIT",
+  "author": "Shreetheja Nagasri <snshagri@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shreetheja/floatdesk.git",
+    "directory": "packages/react"
   },
+  "homepage": "https://github.com/shreetheja/floatdesk#readme",
+  "bugs": {
+    "url": "https://github.com/shreetheja/floatdesk/issues"
+  },
+  "keywords": [
+    "support",
+    "helpdesk",
+    "widget",
+    "react",
+    "bug-report",
+    "screenshot",
+    "feedback"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --external react",
     "dev": "tsup src/index.ts --format esm --dts --watch --external react",
@@ -25,5 +52,8 @@
     "@types/react-dom": "^19.1.2",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

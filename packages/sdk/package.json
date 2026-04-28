@@ -1,13 +1,39 @@
 {
   "name": "@floatdesk/sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "Multi-provider support ticket SDK — Express server factory with plug-in storage adapters, Slack/Telegram/Discord channel integrations, and AWS S3 media uploads",
   "type": "module",
+  "license": "MIT",
+  "author": "Shreetheja Nagasri <snshagri@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shreetheja/floatdesk.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/shreetheja/floatdesk#readme",
+  "bugs": {
+    "url": "https://github.com/shreetheja/floatdesk/issues"
+  },
+  "keywords": [
+    "support",
+    "helpdesk",
+    "tickets",
+    "slack",
+    "telegram",
+    "discord",
+    "express",
+    "sdk",
+    "widget"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "dev": "tsup src/index.ts --format esm --dts --watch",
@@ -42,5 +68,8 @@
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
     "vitest": "^3.1.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

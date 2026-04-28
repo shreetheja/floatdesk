@@ -7,7 +7,7 @@
     "test": "turbo test",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
-    "release": "pnpm build && pnpm changeset publish"
+    "release": "pnpm build && pnpm changeset publish --access public"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
