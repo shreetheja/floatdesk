@@ -1,5 +1,11 @@
 # @floatdesk/sdk
 
+## 2.0.0
+
+### Major Changes
+
+- Attachements server and fixes for slack
+
 ## 1.1.0
 
 ### Minor Changes
