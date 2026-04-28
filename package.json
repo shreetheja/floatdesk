@@ -7,12 +7,15 @@
     "test": "turbo test",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
-    "release": "pnpm build && pnpm changeset publish --access public"
+    "release": "pnpm build && pnpm changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
     "turbo": "^2.5.3",
     "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": { "node": ">=20" },
   "packageManager": "pnpm@10.0.0",
