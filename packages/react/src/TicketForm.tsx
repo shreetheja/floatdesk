@@ -5,6 +5,7 @@ import { useMediaCapture } from './useMediaCapture.js';
 interface Props {
   serverUrl: string;
   onSuccess: (ticketId: string, title: string, type: 'bug' | 'feature') => void;
+  mediaEnabled?: boolean;
 }
 
 const input: React.CSSProperties = {
@@ -26,7 +27,7 @@ const label: React.CSSProperties = {
   letterSpacing: '0.05em',
 };
 
-export function TicketForm({ serverUrl, onSuccess }: Props) {
+export function TicketForm({ serverUrl, onSuccess, mediaEnabled = false }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<'bug' | 'feature'>('bug');
@@ -109,8 +110,8 @@ export function TicketForm({ serverUrl, onSuccess }: Props) {
         />
       </div>
 
-      {/* Attach media */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Attach media — only shown when a media provider is configured on the server */}
+      {mediaEnabled && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <label style={label}>Attach media</label>
         {!attachment ? (
           <div style={{ display: 'flex', gap: 8 }}>
@@ -134,7 +135,7 @@ export function TicketForm({ serverUrl, onSuccess }: Props) {
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       {error && <p style={{ color: '#ff4444', fontSize: 13, margin: 0 }}>{error}</p>}
 

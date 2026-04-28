@@ -40,9 +40,16 @@ export function createExpressRouter(opts: ExpressAdapterOptions): Router {
     res.json(result.messages);
   });
 
-  // POST /ticket/:ticketId/reply
-  router.post('/ticket/:ticketId/reply', async (req: Request, res: Response) => {
-    const result = await addReply(String(req.params.ticketId ?? ''), req.body, storage, channels);
+  // POST /ticket/:ticketId/reply — accepts JSON or multipart (when media is attached)
+  router.post('/ticket/:ticketId/reply', upload.single('media'), async (req: Request, res: Response) => {
+    const result = await addReply(
+      String(req.params.ticketId ?? ''),
+      req.body,
+      storage,
+      channels,
+      req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype, filename: req.file.originalname || 'attachment' } : undefined,
+      media,
+    );
     if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
     res.json({ ok: true });
   });

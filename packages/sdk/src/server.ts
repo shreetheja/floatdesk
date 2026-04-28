@@ -21,7 +21,7 @@ export function createSupportServer(opts: SupportServerOptions): Express {
   }));
   app.use(express.urlencoded({ extended: true }));
   app.use('/api', createExpressRouter(opts));
-  app.get('/health', (_req, res) => res.json({ ok: true, channels: opts.channels.map((c) => c.name) }));
+  app.get('/health', (_req, res) => res.json({ ok: true, channels: opts.channels.map((c) => c.name), media: !!opts.media }));
 
   return app;
 }

@@ -16,6 +16,7 @@ export interface Message {
   senderType: 'user' | 'agent';
   senderName?: string;
   body: string;
+  mediaUrl?: string;
   createdAt: string;
 }
 
@@ -45,7 +46,7 @@ export interface ChannelAdapter {
   /** Path this channel expects its webhook on, e.g. '/webhook/slack'. */
   readonly webhookPath: string;
   postTicket(ticket: Ticket, mediaUrl?: string): Promise<string>;
-  postReply(channelRef: string, text: string): Promise<void>;
+  postReply(channelRef: string, text: string, mediaUrl?: string): Promise<void>;
   handleWebhook(req: WebhookRequest, storage: StorageAdapter): Promise<WebhookResponse>;
 }
 

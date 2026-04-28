@@ -31,10 +31,13 @@ export class TelegramChannel implements ChannelAdapter {
     return String(msg.message_id);
   }
 
-  async postReply(channelRef: string, text: string): Promise<void> {
-    await this.bot.sendMessage(this.chatId, text, {
-      reply_to_message_id: parseInt(channelRef, 10),
-    });
+  async postReply(channelRef: string, text: string, mediaUrl?: string): Promise<void> {
+    const replyOpts = { reply_to_message_id: parseInt(channelRef, 10) };
+    if (mediaUrl) {
+      await this.bot.sendPhoto(this.chatId, mediaUrl, { caption: text, ...replyOpts });
+    } else {
+      await this.bot.sendMessage(this.chatId, text, replyOpts);
+    }
   }
 
   async handleWebhook(req: WebhookRequest, storage: StorageAdapter): Promise<WebhookResponse> {

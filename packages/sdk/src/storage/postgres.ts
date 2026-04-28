@@ -23,6 +23,7 @@ const messagesTable = pgTable('floatdesk_messages', {
   senderType: text('sender_type').notNull(),
   senderName: text('sender_name'),
   body: text('body').notNull(),
+  mediaUrl: text('media_url'),
   createdAt: text('created_at').notNull(),
 });
 
@@ -72,8 +73,10 @@ export class PostgresAdapter implements StorageAdapter {
         sender_type TEXT NOT NULL,
         sender_name TEXT,
         body TEXT NOT NULL,
+        media_url TEXT,
         created_at TEXT NOT NULL
       );
+      ALTER TABLE floatdesk_messages ADD COLUMN IF NOT EXISTS media_url TEXT;
     `);
   }
 
@@ -129,6 +132,7 @@ export class PostgresAdapter implements StorageAdapter {
       senderType: message.senderType,
       senderName: message.senderName,
       body: message.body,
+      mediaUrl: message.mediaUrl,
       createdAt: message.createdAt,
     });
     return message;
@@ -142,6 +146,7 @@ export class PostgresAdapter implements StorageAdapter {
       senderType: r.senderType as 'user' | 'agent',
       senderName: r.senderName ?? undefined,
       body: r.body,
+      mediaUrl: r.mediaUrl ?? undefined,
       createdAt: r.createdAt,
     }));
   }

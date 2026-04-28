@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bug, X, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { TicketForm } from './TicketForm.js';
@@ -45,6 +45,14 @@ export function SupportWidget({ serverUrl }: Props) {
   const [view, setView] = useState<View>('form');
   const [thread, setThread] = useState<{ ticketId: string; title: string } | null>(null);
   const [tickets, setTickets] = useState<StoredTicket[]>([]);
+  const [mediaEnabled, setMediaEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch(`${serverUrl}/health`)
+      .then((r) => r.json())
+      .then((d: { media?: boolean }) => setMediaEnabled(Boolean(d.media)))
+      .catch(() => {});
+  }, [serverUrl]);
 
   function handleOpen() {
     const saved = loadTickets();
@@ -157,12 +165,12 @@ export function SupportWidget({ serverUrl }: Props) {
 
               {view === 'form' && (
                 <div style={{ overflowY: 'auto', flex: 1 }}>
-                  <TicketForm serverUrl={serverUrl} onSuccess={handleSuccess} />
+                  <TicketForm serverUrl={serverUrl} onSuccess={handleSuccess} mediaEnabled={mediaEnabled} />
                 </div>
               )}
 
               {view === 'thread' && thread && (
-                <ThreadView serverUrl={serverUrl} ticketId={thread.ticketId} title={thread.title} />
+                <ThreadView serverUrl={serverUrl} ticketId={thread.ticketId} title={thread.title} mediaEnabled={mediaEnabled} />
               )}
             </div>
           </motion.div>

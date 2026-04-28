@@ -25,7 +25,7 @@
     "sdk",
     "widget"
   ],
-   "publishConfig": {
+  "publishConfig": {
     "access": "public"
   },
   "exports": {
@@ -46,6 +46,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.787.0",
     "@aws-sdk/s3-request-presigner": "^3.787.0",
+    "@google-cloud/storage": "^7.19.0",
     "@slack/web-api": "^7.5.0",
     "cors": "^2.8.5",
     "discord.js": "^14.18.0",

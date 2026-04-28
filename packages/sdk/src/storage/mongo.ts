@@ -20,6 +20,7 @@ interface MessageDoc {
   senderType: string;
   senderName?: string;
   body: string;
+  mediaUrl?: string;
   createdAt: string;
 }
 
@@ -45,6 +46,7 @@ const MessageSchema = new Schema<MessageDoc>(
     senderType: { type: String, required: true },
     senderName: { type: String },
     body: { type: String, required: true },
+    mediaUrl: { type: String },
     createdAt: { type: String, required: true },
   },
   { _id: false }
@@ -115,6 +117,7 @@ export class MongoAdapter implements StorageAdapter {
       senderType: doc.senderType as 'user' | 'agent',
       senderName: doc.senderName,
       body: doc.body,
+      mediaUrl: doc.mediaUrl,
       createdAt: doc.createdAt,
     };
   }
@@ -128,6 +131,7 @@ export class MongoAdapter implements StorageAdapter {
       senderType: d.senderType as 'user' | 'agent',
       senderName: d.senderName,
       body: d.body,
+      mediaUrl: d.mediaUrl,
       createdAt: d.createdAt,
     }));
   }

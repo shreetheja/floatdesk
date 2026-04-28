@@ -54,11 +54,16 @@ export class SlackChannel implements ChannelAdapter {
     return res.ts;
   }
 
-  async postReply(channelRef: string, text: string): Promise<void> {
+  async postReply(channelRef: string, text: string, mediaUrl?: string): Promise<void> {
+    const blocks: (Block | KnownBlock)[] | undefined = mediaUrl ? [
+      { type: 'section', text: { type: 'mrkdwn', text } },
+      { type: 'image', image_url: mediaUrl, alt_text: 'Attachment' } as KnownBlock,
+    ] : undefined;
     const res = await this.client.chat.postMessage({
       channel: this.channelId,
       thread_ts: channelRef,
       text,
+      ...(blocks ? { blocks } : {}),
     });
     if (!res.ok) throw new Error(`Slack thread reply failed: ${res.error}`);
   }

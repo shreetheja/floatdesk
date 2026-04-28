@@ -81,6 +81,8 @@ export async function addReply(
   body: unknown,
   storage: StorageAdapter,
   channels: ChannelAdapter[],
+  file?: FileInput,
+  media?: MediaProvider,
 ): Promise<ServiceResult<Record<never, never>>> {
   const ticket = await storage.getTicket(ticketId);
   if (!ticket) return { ok: false, status: 404, error: 'Ticket not found' };
@@ -89,13 +91,19 @@ export async function addReply(
   if (!parsed.success) return { ok: false, status: 400, error: 'Invalid request' };
 
   const { message } = parsed.data;
-  await storage.appendMessage(ticket.id, { ticketId: ticket.id, senderType: 'user', body: message });
+
+  let mediaUrl: string | undefined;
+  if (file && media) {
+    mediaUrl = await media.upload(file);
+  }
+
+  await storage.appendMessage(ticket.id, { ticketId: ticket.id, senderType: 'user', body: message, mediaUrl });
 
   await Promise.allSettled(
     channels.map(async (ch) => {
       const ref = ticket.channelRefs[ch.name];
       if (ref) {
-        try { await ch.postReply(ref, message); }
+        try { await ch.postReply(ref, message, mediaUrl); }
         catch (err) { console.error(`Channel ${ch.name} reply failed:`, err); }
       }
     }),

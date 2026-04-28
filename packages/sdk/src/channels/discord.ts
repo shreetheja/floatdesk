@@ -62,11 +62,11 @@ export class DiscordChannel implements ChannelAdapter {
     return sent.id;
   }
 
-  async postReply(channelRef: string, text: string): Promise<void> {
+  async postReply(channelRef: string, text: string, mediaUrl?: string): Promise<void> {
     const channel = await this.client.channels.fetch(this.channelId);
     if (!channel?.isTextBased()) throw new Error('Discord channel not found');
     const original = await (channel as import('discord.js').TextChannel).messages.fetch(channelRef);
-    await original.reply({ content: text });
+    await original.reply({ content: text, ...(mediaUrl ? { embeds: [{ image: { url: mediaUrl } }] } : {}) });
   }
 
   // Discord replies come through the gateway (bot WebSocket), not an HTTP webhook.
