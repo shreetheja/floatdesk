@@ -1,4 +1,5 @@
 import { WebClient } from '@slack/web-api';
+import type { Block, KnownBlock } from '@slack/web-api';
 import { Router, type Request, type Response } from 'express';
 import crypto from 'crypto';
 import type { ChannelAdapter, StorageAdapter, Ticket } from '../types.js';
@@ -25,7 +26,7 @@ export class SlackChannel implements ChannelAdapter {
     const emoji = ticket.type === 'bug' ? '🐛' : '✨';
     const label = ticket.type === 'bug' ? 'Bug' : 'Feature';
 
-    const blocks: object[] = [
+    const blocks: (Block | KnownBlock)[] = [
       {
         type: 'header',
         text: { type: 'plain_text', text: `${emoji} ${label}: ${ticket.title}` },
