@@ -1,6 +1,6 @@
 # @floatdesk/sdk
 
-Express server factory for FloatDesk support tickets. Plug in any storage adapter, channel adapter, and media provider — get a fully wired HTTP server back.
+Framework-agnostic support ticket SDK. Plug in any storage adapter, channel adapter, and media provider. Use the built-in Express convenience wrapper or wire the core service functions into Hono, Fastify, or any other framework.
 
 ## Install
 
@@ -10,44 +10,97 @@ pnpm add @floatdesk/sdk
 
 ## Usage
 
+### Express (batteries-included)
+
 ```typescript
-import {
-  createSupportServer,
-  MemoryAdapter,
-  SlackChannel,
-  TelegramChannel,
-  DiscordChannel,
-  PostgresAdapter,
-  MongoAdapter,
-  S3MediaProvider,
-} from '@floatdesk/sdk';
+import { createSupportServer, MemoryAdapter, SlackChannel } from '@floatdesk/sdk';
 
 const app = createSupportServer({
-  storage: new MemoryAdapter(),          // or PostgresAdapter / MongoAdapter
-  channels: [new SlackChannel({ ... })], // one or more channel adapters
-  media: new S3MediaProvider({ ... }),   // optional
+  storage: new MemoryAdapter(),
+  channels: [new SlackChannel({ botToken: '...', channelId: '...', signingSecret: '...' })],
 });
 
 app.listen(3002);
 ```
 
+### Express (router only)
+
+Mount the router at any prefix inside your existing Express app:
+
+```typescript
+import express from 'express';
+import { createExpressRouter, MemoryAdapter } from '@floatdesk/sdk';
+
+const app = express();
+app.use(express.json());
+app.use('/support', createExpressRouter({ storage: new MemoryAdapter(), channels: [] }));
+```
+
+### Framework-agnostic usage
+
+The core service functions take plain objects in and return plain objects out — no framework dependencies:
+
+```typescript
+import { submitTicket, getTicketMessages, addReply } from '@floatdesk/sdk';
+
+// Hono
+app.post('/api/ticket', async (c) => {
+  const form = await c.req.formData();
+  const result = await submitTicket(
+    Object.fromEntries(form),
+    undefined,            // file: { buffer, mimetype, filename } | undefined
+    storage,
+    channels,
+    media,                // optional
+  );
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  return c.json({ ticketId: result.ticketId });
+});
+
+app.get('/api/ticket/:id/messages', async (c) => {
+  const result = await getTicketMessages(c.req.param('id'), storage);
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  return c.json(result.messages);
+});
+
+app.post('/api/ticket/:id/reply', async (c) => {
+  const result = await addReply(c.req.param('id'), await c.req.json(), storage, channels);
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  return c.json({ ok: true });
+});
+
+// Wire channel webhooks
+for (const ch of channels) {
+  app.post(`/api${ch.webhookPath}`, async (c) => {
+    const rawBody = await c.req.text();
+    const result = await ch.handleWebhook(
+      { headers: Object.fromEntries(c.req.raw.headers), body: JSON.parse(rawBody), rawBody },
+      storage,
+    );
+    return c.json(result.body, result.status);
+  });
+}
+```
+
 ## API Routes
+
+When using `createSupportServer` or `createExpressRouter` (mounted at `/api`):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/ticket` | Create a ticket (multipart/form-data) |
+| `POST` | `/api/ticket` | Create a ticket (`multipart/form-data`) |
 | `GET` | `/api/ticket/:id/messages` | Poll messages for a ticket |
 | `POST` | `/api/ticket/:id/reply` | Send a reply from the user |
 | `POST` | `/api/webhook/slack` | Slack Events API webhook |
 | `POST` | `/api/webhook/telegram` | Telegram webhook |
-| `POST` | `/api/webhook/discord` | Discord placeholder (bot uses gateway) |
-| `GET` | `/health` | Health check |
+| `POST` | `/api/webhook/discord` | Discord no-op (replies come via gateway) |
+| `GET` | `/health` | Health check — `{ ok: true, channels: [...] }` |
 
 ## Storage Adapters
 
 ### MemoryAdapter
 
-In-memory store — great for development and tests. No setup required.
+In-memory — great for development and tests. No setup required.
 
 ```typescript
 import { MemoryAdapter } from '@floatdesk/sdk';
@@ -56,7 +109,7 @@ const storage = new MemoryAdapter();
 
 ### PostgresAdapter
 
-Backed by Drizzle ORM + `pg`. Calls `migrate()` to create tables.
+Backed by Drizzle ORM + `pg`. Call `migrate()` once on startup to create tables.
 
 ```typescript
 import { PostgresAdapter } from '@floatdesk/sdk';
@@ -77,49 +130,51 @@ const storage = new MongoAdapter('mongodb://localhost:27017/floatdesk');
 
 ### SlackChannel
 
-Posts tickets as Slack messages with rich blocks. Webhook verifies HMAC-SHA256 signatures. Agent replies in threads are synced back as messages.
+Posts tickets as rich Slack blocks. Optionally syncs agent thread replies back as messages.
 
 ```typescript
 import { SlackChannel } from '@floatdesk/sdk';
 
 new SlackChannel({
-  botToken: 'xoxb-...',
-  signingSecret: '...',
-  channelId: 'C0123456789',
+  botToken:      'xoxb-...',      // required — posts tickets and replies
+  channelId:     'C0123456789',   // required — target channel
+  signingSecret: '...',           // required — verifies incoming webhook signatures for reply sync
 });
 ```
 
-Required Slack bot scopes: `chat:write`, `users:read`. Enable Events API and subscribe to `message.channels`.
+**Required bot scopes:** `chat:write`, `users:read`
+
+**Reply sync setup:** Enable the Events API in your Slack app and subscribe to `message.channels`. Set the request URL to `https://yourhost/api/webhook/slack`. Without this, tickets are posted but agent replies won't appear in the widget.
 
 ### TelegramChannel
 
-Posts tickets to a Telegram chat. Agent replies (reply-to the ticket message) are synced back.
+Posts tickets to a Telegram chat. Replies to the ticket message are synced back.
 
 ```typescript
 import { TelegramChannel } from '@floatdesk/sdk';
 
 new TelegramChannel({
   botToken: '123456:ABC-...',
-  chatId: '-1001234567890',
+  chatId:   '-1001234567890',   // group/channel ID
 });
 ```
 
-Set your webhook URL: `https://api.telegram.org/bot<token>/setWebhook?url=https://yourhost/api/webhook/telegram`
+**Webhook setup:** `https://api.telegram.org/bot<token>/setWebhook?url=https://yourhost/api/webhook/telegram`
 
 ### DiscordChannel
 
-Posts tickets as embeds. Uses the Discord gateway (bot token) to listen for replies. The `/api/webhook/discord` route is a no-op placeholder.
+Posts tickets as embeds. Listens for replies via the Discord gateway (bot WebSocket) — no HTTP webhook needed.
 
 ```typescript
 import { DiscordChannel } from '@floatdesk/sdk';
 
 new DiscordChannel({
-  botToken: 'Bot ...',
-  channelId: '1234567890',
+  botToken:  'Bot ...',
+  channelId: '1234567890123456789',
 });
 ```
 
-Required gateway intents: `GUILDS`, `GUILD_MESSAGES`, `MESSAGE_CONTENT`.
+**Required gateway intents:** `GUILDS`, `GUILD_MESSAGES`, `MESSAGE_CONTENT`
 
 ## Media Provider
 
@@ -131,34 +186,72 @@ Uploads attachments to S3 and returns a public URL.
 import { S3MediaProvider } from '@floatdesk/sdk';
 
 new S3MediaProvider({
-  region: 'us-east-1',
-  bucket: 'my-bucket',
-  accessKeyId: '...',
+  region:          'us-east-1',
+  bucket:          'my-bucket',
+  accessKeyId:     '...',
   secretAccessKey: '...',
-  publicBaseUrl: 'https://cdn.example.com', // optional, defaults to s3 URL
+  publicBaseUrl:   'https://cdn.example.com', // optional, defaults to S3 URL
 });
 ```
 
 ## Custom Adapters
 
-Implement the `StorageAdapter`, `ChannelAdapter`, or `MediaProvider` interfaces to plug in any backend.
+### Custom StorageAdapter
 
 ```typescript
 import type { StorageAdapter } from '@floatdesk/sdk';
 
-class MyAdapter implements StorageAdapter {
-  // implement 5 methods: createTicket, getTicket, findTicketByChannelRef,
-  //                       appendMessage, getMessages
+class RedisAdapter implements StorageAdapter {
+  async createTicket(data) { ... }
+  async getTicket(id) { ... }
+  async findTicketByChannelRef(ref) { ... }
+  async appendMessage(ticketId, msg) { ... }
+  async getMessages(ticketId) { ... }
 }
 ```
 
-## Environment Variables (example)
+### Custom ChannelAdapter
+
+```typescript
+import type { ChannelAdapter, WebhookRequest, WebhookResponse } from '@floatdesk/sdk';
+
+class LinearChannel implements ChannelAdapter {
+  readonly name = 'linear';
+  readonly webhookPath = '/webhook/linear'; // registered automatically
+
+  async postTicket(ticket, mediaUrl?) {
+    // create an issue in Linear, return its ID as channelRef
+    return issueId;
+  }
+
+  async postReply(channelRef, text) {
+    // post a comment on the Linear issue
+  }
+
+  async handleWebhook(req: WebhookRequest, storage): Promise<WebhookResponse> {
+    // req.headers, req.body, req.rawBody — all plain objects, no framework types
+    const event = req.body as { type: string; comment?: { body: string } };
+    if (event.type === 'Comment') {
+      const ticket = await storage.findTicketByChannelRef(event.issueId);
+      if (ticket) await storage.appendMessage(ticket.id, { ... });
+    }
+    return { status: 200, body: { ok: true } };
+  }
+}
+```
+
+## Environment Variables
 
 ```
-DATABASE_URL=postgresql://...
+# Postgres
+DATABASE_URL=postgresql://user:pass@localhost:5432/floatdesk
+
+# Slack
 SLACK_BOT_TOKEN=xoxb-...
-SLACK_SIGNING_SECRET=...
+SLACK_SIGNING_SECRET=...        # only needed for reply sync via webhooks
 SLACK_CHANNEL_ID=C0123456789
+
+# AWS S3
 AWS_REGION=us-east-1
 AWS_S3_BUCKET=my-floatdesk-bucket
 AWS_ACCESS_KEY_ID=...

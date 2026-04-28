@@ -1,12 +1,12 @@
 # FloatDesk
 
-A standalone, multi-provider support ticket SDK with a plug-in storage adapter pattern, three channel integrations, AWS S3 media uploads, and a ready-to-drop-in React widget.
+A framework-agnostic support ticket SDK with plug-in storage adapters, Slack / Telegram / Discord channel integrations, AWS S3 media uploads, and a drop-in React widget.
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| [`@floatdesk/sdk`](./packages/sdk) | Express server factory + storage adapters + channel adapters |
+| [`@floatdesk/sdk`](./packages/sdk) | Framework-agnostic core + Express adapter + storage & channel adapters |
 | [`@floatdesk/react`](./packages/react) | `<SupportWidget>` React component |
 
 ## Quick Start
@@ -29,9 +29,9 @@ const app = createSupportServer({
   storage,
   channels: [
     new SlackChannel({
-      botToken: process.env.SLACK_BOT_TOKEN,
-      signingSecret: process.env.SLACK_SIGNING_SECRET,
-      channelId: process.env.SLACK_CHANNEL_ID,
+      botToken: process.env.SLACK_BOT_TOKEN,   // post tickets
+      channelId: process.env.SLACK_CHANNEL_ID, // where to post
+      signingSecret: process.env.SLACK_SIGNING_SECRET, // only needed for reply sync
     }),
   ],
   media: new S3MediaProvider({
@@ -60,6 +60,23 @@ export default function Layout({ children }) {
 }
 ```
 
+## Not using Express?
+
+The core service functions are framework-agnostic. Use them with Hono, Fastify, or anything else:
+
+```typescript
+import { submitTicket, getTicketMessages, addReply } from '@floatdesk/sdk';
+
+// Hono example
+app.post('/api/ticket', async (c) => {
+  const form = await c.req.formData();
+  const result = await submitTicket(Object.fromEntries(form), undefined, storage, channels);
+  return c.json(result);
+});
+```
+
+See the [SDK README](./packages/sdk#framework-agnostic-usage) for the full pattern.
+
 ## Development
 
 ```bash
@@ -67,6 +84,13 @@ pnpm install
 pnpm build       # build all packages
 pnpm test        # run all tests
 pnpm typecheck   # typecheck all packages
+```
+
+## Local Testing
+
+```bash
+pnpm --filter @floatdesk/test-app dev
+# server starts at http://localhost:3002 with an in-memory store and a console-logging stub channel
 ```
 
 ## Publishing
@@ -81,8 +105,12 @@ pnpm release         # build + publish to npm
 ```
 floatdesk/
 ├── packages/
-│   ├── sdk/      @floatdesk/sdk  — Express server factory, adapters
-│   └── react/    @floatdesk/react — SupportWidget React component
+│   ├── sdk/
+│   │   ├── src/core/           ← framework-agnostic business logic
+│   │   ├── src/adapters/       ← express.ts (only file that imports Express)
+│   │   ├── src/storage/        ← MemoryAdapter, PostgresAdapter, MongoAdapter
+│   │   ├── src/channels/       ← SlackChannel, TelegramChannel, DiscordChannel
+│   │   └── src/media/          ← S3MediaProvider
+│   └── react/                  ← SupportWidget, TicketForm, ThreadView
+└── test-app/                   ← local dev server (git-ignored)
 ```
-
-Consumers call `createSupportServer({ storage, channels, media })` and get back an Express app. The React widget is configured with the server's base URL and works regardless of which backend providers are chosen.
