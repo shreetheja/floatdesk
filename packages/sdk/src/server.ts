@@ -11,20 +11,14 @@ import type { SupportServerOptions } from './types.js';
 export function createSupportServer(opts: SupportServerOptions): Express {
   const app = express();
 
-  // Capture raw body for webhook signature verification (Slack HMAC).
-  // Skip for multipart — multer reads the stream directly.
-  app.use((req, _res, next) => {
-    if ((req.headers['content-type'] ?? '').startsWith('multipart/')) { next(); return; }
-    let data = '';
-    req.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-    req.on('end', () => {
-      (req as typeof req & { rawBody: string }).rawBody = data;
-      next();
-    });
-  });
-
   app.use(cors({ origin: '*' }));
-  app.use(express.json());
+  // Capture raw body during the single json parse so webhook signature
+  // verification (Slack HMAC) can access it without consuming the stream twice.
+  app.use(express.json({
+    verify: (req, _res, buf) => {
+      (req as unknown as { rawBody: string }).rawBody = buf.toString();
+    },
+  }));
   app.use(express.urlencoded({ extended: true }));
   app.use('/api', createExpressRouter(opts));
   app.get('/health', (_req, res) => res.json({ ok: true, channels: opts.channels.map((c) => c.name) }));

@@ -24,6 +24,7 @@ export type {
 // Storage adapters
 export { MemoryAdapter } from './storage/memory.js';
 export { PostgresAdapter } from './storage/postgres.js';
+export type { PostgresAdapterOptions } from './storage/postgres.js';
 export { MongoAdapter } from './storage/mongo.js';
 
 // Channel adapters

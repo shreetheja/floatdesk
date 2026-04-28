@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bug, X } from 'lucide-react';
+import { Bug, X, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { TicketForm } from './TicketForm.js';
 import { ThreadView } from './ThreadView.js';
 
@@ -8,17 +8,74 @@ interface Props {
   serverUrl: string;
 }
 
-type View = 'form' | 'thread';
+interface StoredTicket {
+  ticketId: string;
+  title: string;
+  type: 'bug' | 'feature';
+  createdAt: string;
+}
+
+type View = 'list' | 'form' | 'thread';
+
+const STORAGE_KEY = 'floatdesk_tickets';
+
+function loadTickets(): StoredTicket[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as StoredTicket[];
+  } catch { return []; }
+}
+
+function persistTicket(t: StoredTicket) {
+  const all = loadTickets();
+  all.unshift(t);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all.slice(0, 50)));
+}
+
+function timeAgo(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export function SupportWidget({ serverUrl }: Props) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>('form');
   const [thread, setThread] = useState<{ ticketId: string; title: string } | null>(null);
+  const [tickets, setTickets] = useState<StoredTicket[]>([]);
 
-  function handleSuccess(ticketId: string, title: string) {
+  function handleOpen() {
+    const saved = loadTickets();
+    setTickets(saved);
+    setView(saved.length > 0 ? 'list' : 'form');
+    setOpen(true);
+  }
+
+  function handleSuccess(ticketId: string, title: string, type: 'bug' | 'feature') {
+    const entry: StoredTicket = { ticketId, title, type, createdAt: new Date().toISOString() };
+    persistTicket(entry);
+    setTickets(loadTickets());
     setThread({ ticketId, title });
     setView('thread');
   }
+
+  function openThread(t: StoredTicket) {
+    setThread({ ticketId: t.ticketId, title: t.title });
+    setView('thread');
+  }
+
+  function goBack() {
+    setView(tickets.length > 0 ? 'list' : 'form');
+  }
+
+  const showBack = view === 'thread' || (view === 'form' && tickets.length > 0);
+
+  const headerTitle =
+    view === 'list'   ? 'Your Tickets' :
+    view === 'thread' ? 'Support Thread' :
+                        'Report an Issue';
 
   const panelStyle: React.CSSProperties = {
     width: 360,
@@ -47,27 +104,66 @@ export function SupportWidget({ serverUrl }: Props) {
             style={panelStyle}
           >
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Bug size={16} color="#6b9a00" />
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
-                  {view === 'thread' ? 'Support Thread' : 'Report an Issue'}
-                </span>
-              </div>
-              <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', padding: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', flexShrink: 0 }}>
+              {showBack ? (
+                <button onClick={goBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', padding: 4, borderRadius: 6, flexShrink: 0 }}>
+                  <ChevronLeft size={16} />
+                </button>
+              ) : (
+                <Bug size={16} color="#6b9a00" style={{ flexShrink: 0 }} />
+              )}
+
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#fff', flex: 1 }}>{headerTitle}</span>
+
+              {view === 'list' && (
+                <button
+                  onClick={() => setView('form')}
+                  title="New ticket"
+                  style={{ background: 'rgba(107,154,0,0.15)', border: '1px solid rgba(107,154,0,0.3)', borderRadius: 6, color: '#6b9a00', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12, fontWeight: 600 }}
+                >
+                  <Plus size={13} /> New
+                </button>
+              )}
+
+              <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', padding: 4, flexShrink: 0 }}>
                 <X size={16} />
               </button>
             </div>
 
             {/* Body */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {view === 'form' ? (
+              {view === 'list' && (
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                  {tickets.length === 0 ? (
+                    <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.35)', padding: '32px 16px' }}>No tickets yet</p>
+                  ) : tickets.map((t) => (
+                    <button
+                      key={t.ticketId}
+                      onClick={() => openThread(t)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 16px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 6, background: t.type === 'bug' ? 'rgba(239,68,68,0.15)' : 'rgba(107,154,0,0.15)' }}>
+                        {t.type === 'bug' ? <Bug size={13} color="#ef4444" /> : <Sparkles size={13} color="#6b9a00" />}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#e5e5e5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                        <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{timeAgo(t.createdAt)}</span>
+                      </span>
+                      <ChevronRight size={14} color="rgba(255,255,255,0.25)" style={{ flexShrink: 0 }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {view === 'form' && (
                 <div style={{ overflowY: 'auto', flex: 1 }}>
                   <TicketForm serverUrl={serverUrl} onSuccess={handleSuccess} />
                 </div>
-              ) : thread ? (
+              )}
+
+              {view === 'thread' && thread && (
                 <ThreadView serverUrl={serverUrl} ticketId={thread.ticketId} title={thread.title} />
-              ) : null}
+              )}
             </div>
           </motion.div>
         )}
@@ -75,7 +171,7 @@ export function SupportWidget({ serverUrl }: Props) {
 
       {/* Toggle button */}
       <motion.button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => { if (open) setOpen(false); else handleOpen(); }}
         whileHover={{ scale: 1.07 }}
         whileTap={{ scale: 0.93 }}
         style={{ width: 48, height: 48, borderRadius: '50%', background: '#6b9a00', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 20px rgba(107,154,0,0.4)' }}

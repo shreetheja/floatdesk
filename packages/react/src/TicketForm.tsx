@@ -1,11 +1,30 @@
 import { useState, type FormEvent } from 'react';
-import { Bug, Sparkles, Camera, ScreenShare, X } from 'lucide-react';
+import { Camera, ChevronDown, ScreenShare, X } from 'lucide-react';
 import { useMediaCapture } from './useMediaCapture.js';
 
 interface Props {
   serverUrl: string;
-  onSuccess: (ticketId: string, title: string) => void;
+  onSuccess: (ticketId: string, title: string, type: 'bug' | 'feature') => void;
 }
+
+const input: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.07)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  borderRadius: 8,
+  padding: '8px 12px',
+  fontSize: 14,
+  color: '#fff',
+  outline: 'none',
+  width: '100%',
+};
+
+const label: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: 'rgba(255,255,255,0.5)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+};
 
 export function TicketForm({ serverUrl, onSuccess }: Props) {
   const [title, setTitle] = useState('');
@@ -39,7 +58,7 @@ export function TicketForm({ serverUrl, onSuccess }: Props) {
       const res = await fetch(`${serverUrl}/api/ticket`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error('Submit failed');
       const data = (await res.json()) as { ticketId: string };
-      onSuccess(data.ticketId, title.trim());
+      onSuccess(data.ticketId, title.trim(), type);
     } catch {
       setError('Failed to submit. Please try again.');
     } finally {
@@ -47,52 +66,52 @@ export function TicketForm({ serverUrl, onSuccess }: Props) {
     }
   }
 
-  const pillBase = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer border-none';
-  const pillActive = 'bg-[#6b9a00] text-white';
-  const pillInactive = 'bg-white/10 text-white/60 hover:text-white';
-
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 16 }}>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={() => setType('bug')} className={`${pillBase} ${type === 'bug' ? pillActive : pillInactive}`}>
-          <Bug size={14} /> Bug
-        </button>
-        <button type="button" onClick={() => setType('feature')} className={`${pillBase} ${type === 'feature' ? pillActive : pillInactive}`}>
-          <Sparkles size={14} /> Feature
-        </button>
+      {/* Type dropdown */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <label style={label}>Type <span style={{ color: '#ff4444' }}>*</span></label>
+        <div style={{ position: 'relative' }}>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as 'bug' | 'feature')}
+            style={{ ...input, paddingRight: 36, appearance: 'none', cursor: 'pointer' }}
+          >
+            <option value="bug">🐛  Bug Report</option>
+            <option value="feature">✨  Feature Request</option>
+          </select>
+          <ChevronDown size={14} color="rgba(255,255,255,0.4)" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+        </div>
       </div>
 
+      {/* Title */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Title <span style={{ color: '#ff4444' }}>*</span>
-        </label>
+        <label style={label}>Title <span style={{ color: '#ff4444' }}>*</span></label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Short summary..."
+          placeholder="Short summary…"
           required
-          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#fff', outline: 'none' }}
+          style={input}
         />
       </div>
 
+      {/* Description */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Description <span style={{ color: '#ff4444' }}>*</span>
-        </label>
+        <label style={label}>Description <span style={{ color: '#ff4444' }}>*</span></label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What happened? What did you expect?"
           required
           rows={3}
-          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: '#fff', outline: 'none', resize: 'none' }}
+          style={{ ...input, resize: 'none' }}
         />
       </div>
 
+      {/* Attach media */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <label style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Attach media
-        </label>
+        <label style={label}>Attach media</label>
         {!attachment ? (
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={captureScreenshot} disabled={isCapturing}

@@ -40,22 +40,30 @@ export async function submitTicket(
     mediaUrl = await media.upload(file);
   }
 
-  const ticket = await storage.createTicket({
-    title, description, type, url, userAgent, channelRefs: {}, mediaUrl,
-  });
+  // Build a provisional ticket object (no id yet) so channels can format the message.
+  // Channels don't use ticket.id, so this is safe.
+  const provisional = {
+    id: '', title, description, type, url, userAgent,
+    channelRefs: {}, mediaUrl, createdAt: new Date().toISOString(),
+  };
 
+  // Post to channels first so we can collect their refs before writing to storage.
+  // This ensures findTicketByChannelRef can match Slack thread_ts on inbound webhooks.
   const channelRefs: Record<string, string> = {};
   await Promise.allSettled(
     channels.map(async (ch) => {
       try {
-        channelRefs[ch.name] = await ch.postTicket(ticket, mediaUrl);
+        channelRefs[ch.name] = await ch.postTicket(provisional, mediaUrl);
       } catch (err) {
         console.error(`Channel ${ch.name} failed:`, err);
       }
     }),
   );
 
-  (ticket as { channelRefs: Record<string, string> }).channelRefs = channelRefs;
+  const ticket = await storage.createTicket({
+    title, description, type, url, userAgent, channelRefs, mediaUrl,
+  });
+
   return { ok: true, ticketId: ticket.id };
 }
 

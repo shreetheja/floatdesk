@@ -5,7 +5,8 @@ import type { ChannelAdapter, StorageAdapter, Ticket, WebhookRequest, WebhookRes
 
 export interface SlackChannelOptions {
   botToken: string;
-  signingSecret: string;
+  /** Only required for agent reply sync via Slack Events API webhook. */
+  signingSecret?: string;
   channelId: string;
 }
 
@@ -13,7 +14,7 @@ export class SlackChannel implements ChannelAdapter {
   readonly name = 'slack';
   readonly webhookPath = '/webhook/slack';
   private client: WebClient;
-  private signingSecret: string;
+  private signingSecret: string | undefined;
   private channelId: string;
 
   constructor(opts: SlackChannelOptions) {
@@ -79,6 +80,7 @@ export class SlackChannel implements ChannelAdapter {
   }
 
   private verifySignature(req: WebhookRequest): boolean {
+    if (!this.signingSecret) return true; // reply sync not configured — skip verification
     const timestamp = req.headers['x-slack-request-timestamp'];
     const slackSig = req.headers['x-slack-signature'];
     if (typeof timestamp !== 'string' || typeof slackSig !== 'string') return false;
@@ -89,16 +91,24 @@ export class SlackChannel implements ChannelAdapter {
   }
 
   private async processEvent(body: Record<string, unknown>, storage: StorageAdapter): Promise<void> {
-    if (body['type'] !== 'event_callback') return;
+    if (body['type'] !== 'event_callback') {
+      console.log('[Slack] skipping — outer type:', body['type']);
+      return;
+    }
     const event = body['event'] as Record<string, unknown> | undefined;
-    if (!event || event['type'] !== 'message' || event['subtype'] === 'bot_message' || !event['thread_ts']) return;
+    if (!event) { console.log('[Slack] skipping — no event field'); return; }
+    if (event['type'] !== 'message') { console.log('[Slack] skipping — event type:', event['type']); return; }
+    if (event['subtype'] === 'bot_message' || event['bot_id']) { console.log('[Slack] skipping — bot message'); return; }
+    if (!event['thread_ts']) { console.log('[Slack] skipping — no thread_ts (message is not a threaded reply)'); return; }
 
     const threadTs = String(event['thread_ts']);
     const text = String(event['text'] ?? '');
     const userId = String(event['user'] ?? '');
 
+    console.log(`[Slack] looking up ticket for thread_ts: ${threadTs}`);
     const ticket = await storage.findTicketByChannelRef(threadTs);
-    if (!ticket) return;
+    if (!ticket) { console.log(`[Slack] no ticket found for ref: ${threadTs}`); return; }
+    console.log(`[Slack] matched ticket ${ticket.id}, appending message from ${userId}`);
 
     let senderName = userId;
     try {

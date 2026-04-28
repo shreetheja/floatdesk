@@ -138,13 +138,53 @@ import { SlackChannel } from '@floatdesk/sdk';
 new SlackChannel({
   botToken:      'xoxb-...',      // required — posts tickets and replies
   channelId:     'C0123456789',   // required — target channel
-  signingSecret: '...',           // required — verifies incoming webhook signatures for reply sync
+  signingSecret: '...',           // optional — only needed for agent reply sync
 });
 ```
 
-**Required bot scopes:** `chat:write`, `users:read`
+#### Getting your Slack credentials
 
-**Reply sync setup:** Enable the Events API in your Slack app and subscribe to `message.channels`. Set the request URL to `https://yourhost/api/webhook/slack`. Without this, tickets are posted but agent replies won't appear in the widget.
+**1. Create a Slack app**
+
+Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**. Give it a name (e.g. "FloatDesk") and pick your workspace.
+
+**2. Add bot scopes**
+
+In your app settings: **OAuth & Permissions** → **Scopes** → **Bot Token Scopes** → add:
+
+| Scope | Purpose |
+|---|---|
+| `chat:write` | Post tickets and replies |
+| `users:read` | Resolve agent names in reply sync |
+
+**3. Install the app**
+
+**OAuth & Permissions** → **Install to Workspace** → Authorize. Copy the **Bot User OAuth Token** — it starts with `xoxb-`. This is your `botToken`.
+
+**4. Get the channel ID**
+
+Open the target Slack channel in the browser or desktop app. The channel ID is the last segment of the URL:
+```
+https://app.slack.com/client/T01234/C0123456789
+                                    ^^^^^^^^^^^^ this is channelId
+```
+Alternatively, right-click the channel → **View channel details** → scroll to the bottom for the ID.
+
+Invite the bot to the channel: `/invite @YourAppName`
+
+**5. (Optional) Enable reply sync**
+
+This lets agent replies posted in the Slack thread appear back in the support widget.
+
+- In your app settings: **Event Subscriptions** → toggle **Enable Events** on
+- Set **Request URL** to `https://yourhost/api/webhook/slack` (must be publicly reachable; use [ngrok](https://ngrok.com) locally: `ngrok http 3003`)
+- Under **Subscribe to bot events** add: `message.channels`
+- Save. Slack will send a verification challenge to your endpoint.
+- **Basic Information** → **App Credentials** → copy **Signing Secret**. This is your `signingSecret`.
+
+Without this step, tickets are posted to Slack but agent replies won't appear in the widget.
+
+**Required bot scopes:** `chat:write`, `users:read`
 
 ### TelegramChannel
 

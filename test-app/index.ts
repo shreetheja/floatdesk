@@ -55,7 +55,7 @@ const app = createSupportServer({
   // media: new S3MediaProvider({ ... }),
 });
 
-const PORT = parseInt(process.env['PORT'] ?? '3002', 10);
+const PORT = parseInt(process.env['PORT'] ?? '3003', 10);
 
 app.listen(PORT, () => {
   console.log(`\n🚀  FloatDesk test server running at http://localhost:${PORT}`);

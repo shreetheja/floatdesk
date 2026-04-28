@@ -26,11 +26,30 @@ const messagesTable = pgTable('floatdesk_messages', {
   createdAt: text('created_at').notNull(),
 });
 
+export interface PostgresAdapterOptions {
+  /**
+   * SSL config for the connection pool.
+   * Pass `true` for standard SSL or `{ rejectUnauthorized: false }` for self-signed certs.
+   * When omitted, auto-detected from the `?sslmode=` query parameter:
+   *   - `sslmode=require`    → ssl: true
+   *   - `sslmode=no-verify`  → ssl: { rejectUnauthorized: false }
+   */
+  ssl?: boolean | { rejectUnauthorized: boolean };
+}
+
 export class PostgresAdapter implements StorageAdapter {
   private db: NodePgDatabase;
 
-  constructor(connectionString: string) {
-    const pool = new pg.Pool({ connectionString });
+  constructor(connectionString: string, options?: PostgresAdapterOptions) {
+    let ssl = options?.ssl;
+    if (ssl === undefined) {
+      try {
+        const mode = new URL(connectionString).searchParams.get('sslmode');
+        if (mode === 'require')    ssl = true;
+        if (mode === 'no-verify') ssl = { rejectUnauthorized: false };
+      } catch { /* non-parseable URL, leave ssl undefined */ }
+    }
+    const pool = new pg.Pool({ connectionString, ssl });
     this.db = drizzle(pool);
   }
 
