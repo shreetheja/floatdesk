@@ -102,7 +102,7 @@ export class PostgresAdapter implements StorageAdapter {
     return null;
   }
 
-  async appendMessage(ticketId: string, msg: Omit<Message, 'id' | 'createdAt'>): Promise<Message> {
+  async appendMessage(_ticketId: string, msg: Omit<Message, 'id' | 'createdAt'>): Promise<Message> {
     const message: Message = { ...msg, id: randomUUID(), createdAt: new Date().toISOString() };
     await this.db.insert(messagesTable).values({
       id: message.id,
