@@ -34,3 +34,5 @@ export { DiscordChannel } from './channels/discord.js';
 
 // Media providers
 export { S3MediaProvider } from './media/s3.js';
+export { GCSMediaProvider } from './media/gcs.js';
+export type { GCSMediaProviderOptions } from './media/gcs.js';

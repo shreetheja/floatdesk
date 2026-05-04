@@ -3,9 +3,11 @@ import {
   createSupportServer,
   MemoryAdapter,
   PostgresAdapter,
+  SlackChannel,
+  GCSMediaProvider,
+  S3MediaProvider,
 } from '@floatdesk/sdk';
 import type { ChannelAdapter, StorageAdapter, Ticket, WebhookRequest, WebhookResponse } from '@floatdesk/sdk';
-import { SlackChannel } from '@floatdesk/sdk';
 
 // ---------------------------------------------------------------------------
 // Storage — Postgres if DATABASE_URL is set, otherwise in-memory
@@ -78,18 +80,57 @@ const consoleChannel: ChannelAdapter = {
 channels.push(consoleChannel);
 
 // ---------------------------------------------------------------------------
+// Media — GCS takes priority, then S3, otherwise no media uploads
+// ---------------------------------------------------------------------------
+function buildMedia() {
+  if (process.env['GCS_BUCKET']) {
+    return new GCSMediaProvider({
+      bucket: process.env['GCS_BUCKET'],
+      ...(process.env['GCS_PROJECT_ID'] ? { projectId: process.env['GCS_PROJECT_ID'] } : {}),
+      ...(process.env['GCS_CLIENT_EMAIL'] && process.env['GCS_PRIVATE_KEY']
+        ? { credentials: {
+            client_email: process.env['GCS_CLIENT_EMAIL'],
+            // .env stores \n literally — convert to real newlines
+            private_key:  process.env['GCS_PRIVATE_KEY'].replace(/\\n/g, '\n'),
+          } }
+        : {}),
+      ...(process.env['GCS_PUBLIC_BASE_URL'] ? { publicBaseUrl: process.env['GCS_PUBLIC_BASE_URL'] } : {}),
+    });
+  }
+
+  if (process.env['AWS_S3_BUCKET'] && process.env['AWS_REGION'] &&
+      process.env['AWS_ACCESS_KEY_ID'] && process.env['AWS_SECRET_ACCESS_KEY']) {
+    return new S3MediaProvider({
+      region:          process.env['AWS_REGION'],
+      bucket:          process.env['AWS_S3_BUCKET'],
+      accessKeyId:     process.env['AWS_ACCESS_KEY_ID'],
+      secretAccessKey: process.env['AWS_SECRET_ACCESS_KEY'],
+      ...(process.env['AWS_PUBLIC_BASE_URL'] ? { publicBaseUrl: process.env['AWS_PUBLIC_BASE_URL'] } : {}),
+    });
+  }
+
+  return undefined;
+}
+
+const media = buildMedia();
+
+// ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
-const app = createSupportServer({ storage, channels });
+const app = createSupportServer({ storage, channels, media });
 const PORT = parseInt(process.env['PORT'] ?? '3003', 10);
 
 const storageLabel = storage instanceof PostgresAdapter ? `Postgres (${process.env['DATABASE_URL']!.replace(/:\/\/[^@]+@/, '://<credentials>@')})` : 'Memory (resets on restart)';
 const channelLabels = channels.map((c) => c.name).join(', ');
+const mediaLabel = media instanceof GCSMediaProvider ? `GCS (${process.env['GCS_BUCKET']})`
+                 : media instanceof S3MediaProvider  ? `S3 (${process.env['AWS_S3_BUCKET']})`
+                 : 'none (media uploads disabled)';
 
 app.listen(PORT, () => {
   console.log(`\n🚀  FloatDesk test server → http://localhost:${PORT}`);
   console.log(`    Storage:  ${storageLabel}`);
   console.log(`    Channels: ${channelLabels}`);
+  console.log(`    Media:    ${mediaLabel}`);
   console.log(`\n    Health:   GET  http://localhost:${PORT}/health`);
   console.log(`    Ticket:   POST http://localhost:${PORT}/api/ticket  (multipart)`);
   console.log(`    Messages: GET  http://localhost:${PORT}/api/ticket/:id/messages`);

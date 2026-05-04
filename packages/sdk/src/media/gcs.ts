@@ -3,7 +3,8 @@ import { randomUUID } from 'crypto';
 import type { MediaProvider } from '../types.js';
 
 export interface GCSMediaProviderOptions {
-  projectId: string;
+  /** Optional — inferred from credentials or GOOGLE_CLOUD_PROJECT env var when omitted. */
+  projectId?: string;
   bucket: string;
   /**
    * Service account credentials. If omitted, falls back to Application Default Credentials
@@ -29,7 +30,7 @@ export class GCSMediaProvider implements MediaProvider {
 
   constructor(opts: GCSMediaProviderOptions) {
     this.storage = new Storage({
-      projectId: opts.projectId,
+      ...(opts.projectId ? { projectId: opts.projectId } : {}),
       ...(opts.credentials ? { credentials: opts.credentials } : {}),
     });
     this.bucket = opts.bucket;

@@ -11,9 +11,11 @@ describe('types', () => {
   });
 
   it('ChannelAdapter has required methods', () => {
+    expectTypeOf<ChannelAdapter>().toHaveProperty('name');
+    expectTypeOf<ChannelAdapter>().toHaveProperty('webhookPath');
     expectTypeOf<ChannelAdapter>().toHaveProperty('postTicket');
     expectTypeOf<ChannelAdapter>().toHaveProperty('postReply');
-    expectTypeOf<ChannelAdapter>().toHaveProperty('getWebhookRouter');
+    expectTypeOf<ChannelAdapter>().toHaveProperty('handleWebhook');
   });
 
   it('MediaProvider has upload method', () => {

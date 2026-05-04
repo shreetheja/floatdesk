@@ -234,6 +234,59 @@ new S3MediaProvider({
 });
 ```
 
+### GCSMediaProvider
+
+Uploads attachments to Google Cloud Storage and returns a public URL.
+
+```typescript
+import { GCSMediaProvider } from '@floatdesk/sdk';
+
+new GCSMediaProvider({
+  projectId: 'my-gcp-project',
+  bucket:    'my-floatdesk-bucket',
+  credentials: {
+    client_email: 'floatdesk@my-gcp-project.iam.gserviceaccount.com',
+    private_key:  '-----BEGIN RSA PRIVATE KEY-----\n...',
+  },
+  publicBaseUrl: 'https://cdn.example.com', // optional, defaults to storage.googleapis.com/<bucket>
+});
+```
+
+If `credentials` is omitted the provider falls back to **Application Default Credentials** — useful when running on GCP (Cloud Run, GKE, Compute Engine) where the runtime service account is picked up automatically.
+
+#### GCP setup
+
+**1. Create a bucket**
+
+```bash
+gsutil mb -l us-central1 gs://my-floatdesk-bucket
+```
+
+**2. Make uploaded objects publicly readable**
+
+```bash
+# Uniform bucket-level access (recommended)
+gcloud storage buckets update gs://my-floatdesk-bucket --uniform-bucket-level-access
+gcloud storage buckets add-iam-policy-binding gs://my-floatdesk-bucket \
+  --member=allUsers --role=roles/storage.objectViewer
+```
+
+**3. Create a service account and download a key**
+
+```bash
+gcloud iam service-accounts create floatdesk \
+  --display-name="FloatDesk uploader"
+
+gcloud projects add-iam-policy-binding YOUR_PROJECT \
+  --member="serviceAccount:floatdesk@YOUR_PROJECT.iam.gserviceaccount.com" \
+  --role="roles/storage.objectCreator"
+
+gcloud iam service-accounts keys create key.json \
+  --iam-account=floatdesk@YOUR_PROJECT.iam.gserviceaccount.com
+```
+
+Copy `client_email` and `private_key` from `key.json` into your env vars. Replace literal newlines in `private_key` with `\n` so the value fits on one line.
+
 ## Custom Adapters
 
 ### Custom StorageAdapter
