@@ -1,5 +1,11 @@
 # @floatdesk/react
 
+## 3.0.0
+
+### Major Changes
+
+- 3d80c25: feat: Book a call
+
 ## 2.2.0
 
 ### Minor Changes

@@ -1,5 +1,13 @@
 # @floatdesk/test-app
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [3d80c25]
+  - @floatdesk/react@3.0.0
+  - @floatdesk/sdk@3.0.0
+
 ## 0.0.3
 
 ### Patch Changes
