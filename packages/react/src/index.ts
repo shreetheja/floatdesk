@@ -1,4 +1,5 @@
 export { SupportWidget } from './SupportWidget.js';
+export { Toast } from './Toast.js';
 export { TicketForm } from './TicketForm.js';
 export { ThreadView } from './ThreadView.js';
 export { BookCallView } from './BookCallView.js';

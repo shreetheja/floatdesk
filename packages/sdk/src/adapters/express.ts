@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import type { StorageAdapter, ChannelAdapter, MediaProvider, CallConfig } from '../types.js';
-import { submitTicket, getTicketMessages, addReply } from '../core/ticket-service.js';
+import { submitTicket, getTicketMessages, addReply, createSessionTicket } from '../core/ticket-service.js';
 import { requestFeedbackCall } from '../core/call-service.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -54,6 +54,13 @@ export function createExpressRouter(opts: ExpressAdapterOptions): Router {
     );
     if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
     res.json({ ok: true });
+  });
+
+  // POST /session — new user signup notification
+  router.post('/session', async (req: Request, res: Response) => {
+    const result = await createSessionTicket(req.body, storage, channels);
+    if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
+    res.json({ ticketId: result.ticketId });
   });
 
   // POST /call/request — book a feedback call

@@ -143,7 +143,11 @@ function App() {
       </div>
 
       {/* FloatDesk Support Widget */}
-      <SupportWidget serverUrl="" />
+      <SupportWidget
+        serverUrl="http://localhost:3003"
+        signupUser={{ id: 'test-user-1', email: 'alice@acme.io', name: 'Alice' }}
+        signupMessage="🎉 New signup: {name} ({email}) joined from {url}"
+      />
     </div>
   );
 }

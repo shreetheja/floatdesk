@@ -60,6 +60,20 @@ export default function Layout({ children }) {
 }
 ```
 
+### 4. (Optional) Signup notifications + unread indicator
+
+Pass the signed-up user to the widget. On first mount, a message is posted to Slack. Agent replies route back into the widget — the user sees a toast popup and a red dot badge on the FAB.
+
+```tsx
+<SupportWidget
+  serverUrl="http://localhost:3002"
+  signupUser={{ id: user.id, email: user.email, name: user.name }}
+  signupMessage="🎉 New signup: {name} ({email}) joined from {url}"
+/>
+```
+
+The notification fires **once per user identity** — deduplication is handled automatically via `localStorage`. See the [React package README](./packages/react) for full prop docs.
+
 ## Not using Express?
 
 The core service functions are framework-agnostic. Use them with Hono, Fastify, or anything else:

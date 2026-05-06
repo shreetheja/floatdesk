@@ -31,8 +31,8 @@ export class SlackChannel implements ChannelAdapter {
   }
 
   async postTicket(ticket: Ticket, mediaUrl?: string): Promise<string> {
-    const emoji = ticket.type === 'bug' ? '🐛' : '✨';
-    const label = ticket.type === 'bug' ? 'Bug' : 'Feature';
+    const emoji = ticket.type === 'bug' ? '🐛' : ticket.type === 'session' ? '👋' : '✨';
+    const label = ticket.type === 'bug' ? 'Bug' : ticket.type === 'session' ? 'Session' : 'Feature';
 
     const blocks: (Block | KnownBlock)[] = [
       { type: 'header', text: { type: 'plain_text', text: `${emoji} ${label}: ${ticket.title}` } },

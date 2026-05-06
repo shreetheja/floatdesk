@@ -2,7 +2,7 @@ export interface Ticket {
   id: string;
   title: string;
   description: string;
-  type: 'bug' | 'feature';
+  type: 'bug' | 'feature' | 'session';
   url: string;
   userAgent: string;
   createdAt: string;

@@ -91,10 +91,41 @@ When using `createSupportServer` or `createExpressRouter` (mounted at `/api`):
 | `POST` | `/api/ticket` | Create a ticket (`multipart/form-data`) |
 | `GET` | `/api/ticket/:id/messages` | Poll messages for a ticket |
 | `POST` | `/api/ticket/:id/reply` | Send a reply from the user |
+| `POST` | `/api/session` | Create a signup session notification (JSON) |
 | `POST` | `/api/webhook/slack` | Slack Events API webhook |
 | `POST` | `/api/webhook/telegram` | Telegram webhook |
 | `POST` | `/api/webhook/discord` | Discord no-op (replies come via gateway) |
 | `GET` | `/health` | Health check — `{ ok: true, channels: [...] }` |
+
+### `POST /api/session` — signup notification
+
+Called automatically by `<SupportWidget signupUser={...} />` on first mount for a new user. Posts a configurable message to Slack as a new thread. Slack replies to that thread are routed back to the user's widget.
+
+**Request body (JSON):**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `userId` | `string` | one of `userId`/`email` | App-level user ID |
+| `email` | `string` | one of `userId`/`email` | User's email address |
+| `name` | `string` | — | Display name |
+| `signupMessage` | `string` | ✓ | Message template. Supports `{name}`, `{email}`, `{url}` placeholders |
+| `url` | `string` | ✓ | Page URL at time of signup |
+| `userAgent` | `string` | ✓ | Browser user agent |
+
+**Response:** `{ ticketId: string }`
+
+**Framework-agnostic usage:**
+
+```typescript
+import { createSessionTicket } from '@floatdesk/sdk';
+
+// Hono example
+app.post('/api/session', async (c) => {
+  const result = await createSessionTicket(await c.req.json(), storage, channels);
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  return c.json({ ticketId: result.ticketId });
+});
+```
 
 ## Storage Adapters
 

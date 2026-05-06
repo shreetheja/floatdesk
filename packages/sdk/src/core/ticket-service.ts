@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { StorageAdapter, ChannelAdapter, MediaProvider } from '../types.js';
+import type { StorageAdapter, ChannelAdapter, MediaProvider, Ticket } from '../types.js';
 
 const CreateSchema = z.object({
   title: z.string().min(1),
@@ -114,4 +114,54 @@ export async function addReply(
 
 export function getHealth(channels: ChannelAdapter[]): { ok: true; channels: string[] } {
   return { ok: true, channels: channels.map((c) => c.name) };
+}
+
+const SessionSchema = z.object({
+  userId:        z.string().optional(),
+  email:         z.string().optional(),
+  name:          z.string().optional(),
+  signupMessage: z.string().min(1),
+  url:           z.string(),
+  userAgent:     z.string(),
+}).refine((d) => d.userId !== undefined || d.email !== undefined, {
+  message: 'At least one of userId or email is required',
+});
+
+export async function createSessionTicket(
+  fields: unknown,
+  storage: StorageAdapter,
+  channels: ChannelAdapter[],
+): Promise<ServiceResult<{ ticketId: string }>> {
+  const parsed = SessionSchema.safeParse(fields);
+  if (!parsed.success) return { ok: false, status: 400, error: parsed.error.message };
+  const { userId, email, name, signupMessage, url, userAgent } = parsed.data;
+
+  const resolvedMsg = signupMessage
+    .replace('{name}', name ?? '')
+    .replace('{email}', email ?? '')
+    .replace('{url}', url ?? '');
+
+  const displayName = name ?? email ?? userId ?? 'User';
+  const provisional: Omit<Ticket, 'id' | 'createdAt'> = {
+    title: `Session: ${displayName}`,
+    description: resolvedMsg,
+    type: 'session',
+    url,
+    userAgent,
+    channelRefs: {},
+  };
+
+  const channelRefs: Record<string, string> = {};
+  await Promise.allSettled(
+    channels.map(async (ch) => {
+      try {
+        channelRefs[ch.name] = await ch.postTicket(provisional as Ticket);
+      } catch (err) {
+        console.error(`Channel ${ch.name} failed:`, err);
+      }
+    }),
+  );
+
+  const ticket = await storage.createTicket({ ...provisional, channelRefs });
+  return { ok: true, ticketId: ticket.id };
 }

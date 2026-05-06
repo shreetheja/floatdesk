@@ -1,5 +1,27 @@
 # @floatdesk/sdk
 
+## 2.2.0
+
+### Minor Changes
+
+- Add unread indicator (toast + dot badge) and new-user signup session notifications.
+
+  **@floatdesk/react**
+
+  - `<SupportWidget>` now accepts `signupUser` and `signupMessage` props. On first mount for a new user identity, the widget calls `POST /api/session` to post a configurable message to Slack. Deduplication via `localStorage` ensures the notification fires exactly once per user — never on subsequent page loads.
+  - Background polling (every 15 s) now runs whether the widget panel is open or closed. When a new agent message arrives while the panel is closed, a **toast popup** slides up near the FAB with the sender name and message preview (auto-dismisses after 4 s), and a **red dot badge** appears on the FAB until the widget is opened.
+  - Clicking the toast opens the widget directly to the relevant thread.
+  - Session threads appear in the ticket list with a distinct blue `MessageCircle` icon.
+  - New `Toast` component exported for standalone use.
+
+  **@floatdesk/sdk**
+
+  - `Ticket.type` now accepts `'session'` in addition to `'bug'` and `'feature'`. No storage migration required — existing Postgres, Mongo, and Memory adapters are fully compatible.
+  - New `createSessionTicket(fields, storage, channels)` service function — validates input with Zod, resolves `{name}` / `{email}` / `{url}` placeholders in the message template, posts to all channels, and persists to storage.
+  - New `POST /api/session` route added to the Express adapter (and `createExpressRouter`).
+  - `SlackChannel.postTicket` handles the `'session'` type with a `👋` emoji and `Session` label.
+  - `createSessionTicket` is exported from `@floatdesk/sdk`.
+
 ## 2.1.0
 
 ### Minor Changes
