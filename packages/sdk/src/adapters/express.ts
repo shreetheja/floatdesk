@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import type { StorageAdapter, ChannelAdapter, MediaProvider, CallConfig } from '../types.js';
-import { submitTicket, getTicketMessages, addReply, createSessionTicket } from '../core/ticket-service.js';
+import { submitTicket, getTicketMessages, addReply, getMessagesBatch, createSessionTicket } from '../core/ticket-service.js';
 import { requestFeedbackCall } from '../core/call-service.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -54,6 +54,13 @@ export function createExpressRouter(opts: ExpressAdapterOptions): Router {
     );
     if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
     res.json({ ok: true });
+  });
+
+  // POST /tickets/messages/batch — fetch new messages for multiple tickets in one call
+  router.post('/tickets/messages/batch', async (req: Request, res: Response) => {
+    const result = await getMessagesBatch(req.body, storage);
+    if (!result.ok) { res.status(result.status).json({ error: result.error }); return; }
+    res.json(result.results);
   });
 
   // POST /session — new user signup notification

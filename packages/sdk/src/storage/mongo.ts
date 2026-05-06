@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import mongoose, { Schema, type Document } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import type { StorageAdapter, Ticket, Message, FeedbackCall } from '../types.js';
 
 interface TicketDoc {
@@ -157,6 +157,28 @@ export class MongoAdapter implements StorageAdapter {
       mediaUrl: d.mediaUrl,
       createdAt: d.createdAt,
     }));
+  }
+
+  async getMessagesBatch(requests: Array<{ ticketId: string; since?: string }>): Promise<Record<string, Message[]>> {
+    const { MessageModel } = getModels(this.connection);
+    const ticketIds = requests.map((r) => r.ticketId);
+    const docs = await MessageModel.find({ ticketId: { $in: ticketIds } }).sort({ createdAt: 1 });
+    const result: Record<string, Message[]> = Object.fromEntries(ticketIds.map((id) => [id, []]));
+    for (const d of docs) {
+      const since = requests.find((q) => q.ticketId === d.ticketId)?.since;
+      if (!since || d.createdAt > since) {
+        result[d.ticketId]!.push({
+          id: String(d._id),
+          ticketId: d.ticketId,
+          senderType: d.senderType as 'user' | 'agent',
+          senderName: d.senderName,
+          body: d.body,
+          mediaUrl: d.mediaUrl,
+          createdAt: d.createdAt,
+        });
+      }
+    }
+    return result;
   }
 
   async createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall> {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { pgTable, text, jsonb, integer } from 'drizzle-orm/pg-core';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import pg from 'pg';
 import type { StorageAdapter, Ticket, Message, FeedbackCall } from '../types.js';
 
@@ -86,6 +86,7 @@ export class PostgresAdapter implements StorageAdapter {
         created_at TEXT NOT NULL
       );
       ALTER TABLE floatdesk_messages ADD COLUMN IF NOT EXISTS media_url TEXT;
+      CREATE INDEX IF NOT EXISTS idx_floatdesk_messages_ticket_id ON floatdesk_messages(ticket_id);
       CREATE TABLE IF NOT EXISTS floatdesk_feedback_calls (
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL,
@@ -166,6 +167,27 @@ export class PostgresAdapter implements StorageAdapter {
       mediaUrl: r.mediaUrl ?? undefined,
       createdAt: r.createdAt,
     }));
+  }
+
+  async getMessagesBatch(requests: Array<{ ticketId: string; since?: string }>): Promise<Record<string, Message[]>> {
+    const ticketIds = requests.map((r) => r.ticketId);
+    const rows = await this.db.select().from(messagesTable).where(inArray(messagesTable.ticketId, ticketIds));
+    const result: Record<string, Message[]> = Object.fromEntries(ticketIds.map((id) => [id, []]));
+    for (const r of rows) {
+      const since = requests.find((q) => q.ticketId === r.ticketId)?.since;
+      if (!since || r.createdAt > since) {
+        result[r.ticketId]!.push({
+          id: r.id,
+          ticketId: r.ticketId,
+          senderType: r.senderType as 'user' | 'agent',
+          senderName: r.senderName ?? undefined,
+          body: r.body,
+          mediaUrl: r.mediaUrl ?? undefined,
+          createdAt: r.createdAt,
+        });
+      }
+    }
+    return result;
   }
 
   async createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall> {

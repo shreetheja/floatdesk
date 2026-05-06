@@ -36,6 +36,15 @@ export class MemoryAdapter implements StorageAdapter {
     return this.messages.get(ticketId) ?? [];
   }
 
+  async getMessagesBatch(requests: Array<{ ticketId: string; since?: string }>): Promise<Record<string, Message[]>> {
+    const result: Record<string, Message[]> = {};
+    for (const { ticketId, since } of requests) {
+      const msgs = this.messages.get(ticketId) ?? [];
+      result[ticketId] = since ? msgs.filter((m) => m.createdAt > since) : msgs;
+    }
+    return result;
+  }
+
   async createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall> {
     const call: FeedbackCall = { ...data, id: randomUUID(), createdAt: new Date().toISOString() };
     this.feedbackCalls.set(call.id, call);

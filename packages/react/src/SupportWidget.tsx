@@ -147,7 +147,7 @@ export function SupportWidget({ serverUrl, signupUser, signupMessage }: Props) {
       .catch(() => { signupFiredRef.current = false; });
   }, [signupUser, signupMessage, serverUrl]);
 
-  // Background polling for unread messages — runs whether widget is open or closed
+  // Background polling for unread messages — single batch call regardless of how many tickets
   useEffect(() => {
     let active = true;
 
@@ -156,20 +156,34 @@ export function SupportWidget({ serverUrl, signupUser, signupMessage }: Props) {
       if (allTickets.length === 0) return;
       const seenMap = loadLastSeen();
 
-      for (const t of allTickets) {
-        try {
-          const res = await fetch(`${serverUrl}/api/ticket/${t.ticketId}/messages`);
-          if (!res.ok || !active) continue;
-          const msgs = (await res.json()) as Array<{ id: string; senderType: string; senderName?: string; body: string; createdAt: string }>;
-          const seenAt = seenMap[t.ticketId];
-          const newMsgs = msgs.filter((m) => m.senderType === 'agent' && (!seenAt || m.createdAt > seenAt));
-          if (newMsgs.length > 0 && !open) {
-            setUnreadCount((c) => c + newMsgs.length);
+      try {
+        const res = await fetch(`${serverUrl}/api/tickets/messages/batch`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            tickets: allTickets.map((t) => ({ ticketId: t.ticketId, since: seenMap[t.ticketId] })),
+          }),
+        });
+        if (!res.ok || !active) return;
+        const results = (await res.json()) as Record<string, Array<{ id: string; senderType: string; senderName?: string; body: string; createdAt: string }>>;
+
+        let newTotal = 0;
+        let latestToast: { senderName: string; body: string; ticketId: string } | null = null;
+
+        for (const t of allTickets) {
+          const newMsgs = (results[t.ticketId] ?? []).filter((m) => m.senderType === 'agent');
+          if (newMsgs.length > 0) {
+            newTotal += newMsgs.length;
             const latest = newMsgs[newMsgs.length - 1]!;
-            setToast({ senderName: latest.senderName ?? 'Agent', body: latest.body.slice(0, 80), ticketId: t.ticketId });
+            latestToast = { senderName: latest.senderName ?? 'Agent', body: latest.body.slice(0, 80), ticketId: t.ticketId };
           }
-        } catch { /* ignore */ }
-      }
+        }
+
+        if (newTotal > 0 && !open) {
+          setUnreadCount((c) => c + newTotal);
+          if (latestToast) setToast(latestToast);
+        }
+      } catch { /* ignore */ }
     }
 
     pollAll();

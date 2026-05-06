@@ -26,6 +26,7 @@ export interface StorageAdapter {
   findTicketByChannelRef(channelRef: string): Promise<Ticket | null>;
   appendMessage(ticketId: string, msg: Omit<Message, 'id' | 'createdAt'>): Promise<Message>;
   getMessages(ticketId: string): Promise<Message[]>;
+  getMessagesBatch(requests: Array<{ ticketId: string; since?: string }>): Promise<Record<string, Message[]>>;
   createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall>;
   getFeedbackCall(id: string): Promise<FeedbackCall | null>;
   updateFeedbackCall(id: string, data: Partial<Pick<FeedbackCall, 'status' | 'creditsAwarded'>>): Promise<FeedbackCall>;

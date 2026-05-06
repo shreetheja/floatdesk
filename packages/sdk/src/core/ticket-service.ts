@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { StorageAdapter, ChannelAdapter, MediaProvider, Ticket } from '../types.js';
+import type { StorageAdapter, ChannelAdapter, MediaProvider, Ticket, Message } from '../types.js';
 
 const CreateSchema = z.object({
   title: z.string().min(1),
@@ -114,6 +114,23 @@ export async function addReply(
 
 export function getHealth(channels: ChannelAdapter[]): { ok: true; channels: string[] } {
   return { ok: true, channels: channels.map((c) => c.name) };
+}
+
+const BatchSchema = z.object({
+  tickets: z.array(z.object({
+    ticketId: z.string(),
+    since: z.string().optional(),
+  })).min(1),
+});
+
+export async function getMessagesBatch(
+  body: unknown,
+  storage: StorageAdapter,
+): Promise<ServiceResult<{ results: Record<string, Message[]> }>> {
+  const parsed = BatchSchema.safeParse(body);
+  if (!parsed.success) return { ok: false, status: 400, error: 'Invalid request' };
+  const results = await storage.getMessagesBatch(parsed.data.tickets);
+  return { ok: true, results };
 }
 
 const SessionSchema = z.object({

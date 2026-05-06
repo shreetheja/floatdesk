@@ -6,7 +6,7 @@ export { createExpressRouter } from './adapters/express.js';
 export type { ExpressAdapterOptions } from './adapters/express.js';
 
 // Core service functions — framework-agnostic, use with Hono, Fastify, or anything else
-export { submitTicket, getTicketMessages, addReply, getHealth, createSessionTicket } from './core/ticket-service.js';
+export { submitTicket, getTicketMessages, addReply, getHealth, getMessagesBatch, createSessionTicket } from './core/ticket-service.js';
 export type { ServiceResult, FileInput } from './core/ticket-service.js';
 export { requestFeedbackCall } from './core/call-service.js';
 
