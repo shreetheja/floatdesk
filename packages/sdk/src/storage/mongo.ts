@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import mongoose, { Schema, type Document } from 'mongoose';
-import type { StorageAdapter, Ticket, Message } from '../types.js';
+import type { StorageAdapter, Ticket, Message, FeedbackCall } from '../types.js';
 
 interface TicketDoc {
   _id: string;
@@ -21,6 +21,15 @@ interface MessageDoc {
   senderName?: string;
   body: string;
   mediaUrl?: string;
+  createdAt: string;
+}
+
+interface FeedbackCallDoc {
+  _id: string;
+  email: string;
+  topic: string;
+  status: string;
+  creditsAwarded?: number;
   createdAt: string;
 }
 
@@ -52,12 +61,26 @@ const MessageSchema = new Schema<MessageDoc>(
   { _id: false }
 );
 
+const FeedbackCallSchema = new Schema<FeedbackCallDoc>(
+  {
+    _id: { type: String },
+    email: { type: String, required: true, index: true },
+    topic: { type: String, required: true },
+    status: { type: String, required: true, default: 'pending' },
+    creditsAwarded: { type: Number },
+    createdAt: { type: String, required: true },
+  },
+  { _id: false }
+);
+
 function getModels(connection: mongoose.Connection) {
   const TicketModel = connection.models['FloatDeskTicket'] as mongoose.Model<TicketDoc> |
     undefined ?? connection.model<TicketDoc>('FloatDeskTicket', TicketSchema);
   const MessageModel = connection.models['FloatDeskMessage'] as mongoose.Model<MessageDoc> |
     undefined ?? connection.model<MessageDoc>('FloatDeskMessage', MessageSchema);
-  return { TicketModel, MessageModel };
+  const FeedbackCallModel = connection.models['FloatDeskFeedbackCall'] as mongoose.Model<FeedbackCallDoc> |
+    undefined ?? connection.model<FeedbackCallDoc>('FloatDeskFeedbackCall', FeedbackCallSchema);
+  return { TicketModel, MessageModel, FeedbackCallModel };
 }
 
 export class MongoAdapter implements StorageAdapter {
@@ -134,5 +157,43 @@ export class MongoAdapter implements StorageAdapter {
       mediaUrl: d.mediaUrl,
       createdAt: d.createdAt,
     }));
+  }
+
+  async createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall> {
+    const { FeedbackCallModel } = getModels(this.connection);
+    const id = randomUUID();
+    const createdAt = new Date().toISOString();
+    const doc = await FeedbackCallModel.create({ _id: id, ...data, createdAt });
+    return this.docToFeedbackCall(doc);
+  }
+
+  async getFeedbackCall(id: string): Promise<FeedbackCall | null> {
+    const { FeedbackCallModel } = getModels(this.connection);
+    const doc = await FeedbackCallModel.findById(id);
+    return doc ? this.docToFeedbackCall(doc) : null;
+  }
+
+  async updateFeedbackCall(id: string, data: Partial<Pick<FeedbackCall, 'status' | 'creditsAwarded'>>): Promise<FeedbackCall> {
+    const { FeedbackCallModel } = getModels(this.connection);
+    const doc = await FeedbackCallModel.findByIdAndUpdate(id, { $set: data }, { new: true });
+    if (!doc) throw new Error(`FeedbackCall not found: ${id}`);
+    return this.docToFeedbackCall(doc);
+  }
+
+  async getCredits(email: string): Promise<number> {
+    const { FeedbackCallModel } = getModels(this.connection);
+    const docs = await FeedbackCallModel.find({ email, status: 'credited' });
+    return docs.reduce((sum, d) => sum + (d.creditsAwarded ?? 0), 0);
+  }
+
+  private docToFeedbackCall(doc: FeedbackCallDoc): FeedbackCall {
+    return {
+      id: String(doc._id),
+      email: doc.email,
+      topic: doc.topic,
+      status: doc.status as FeedbackCall['status'],
+      creditsAwarded: doc.creditsAwarded,
+      createdAt: doc.createdAt,
+    };
   }
 }

@@ -8,6 +8,7 @@ export type { ExpressAdapterOptions } from './adapters/express.js';
 // Core service functions — framework-agnostic, use with Hono, Fastify, or anything else
 export { submitTicket, getTicketMessages, addReply, getHealth } from './core/ticket-service.js';
 export type { ServiceResult, FileInput } from './core/ticket-service.js';
+export { requestFeedbackCall } from './core/call-service.js';
 
 // Types / interfaces
 export type {
@@ -19,6 +20,8 @@ export type {
   SupportServerOptions,
   WebhookRequest,
   WebhookResponse,
+  FeedbackCall,
+  CallConfig,
 } from './types.js';
 
 // Storage adapters

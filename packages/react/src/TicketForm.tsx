@@ -33,7 +33,7 @@ export function TicketForm({ serverUrl, onSuccess, mediaEnabled = false }: Props
   const [type, setType] = useState<'bug' | 'feature'>('bug');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { attachment, isCapturing, captureScreenshot, recordScreen, clearAttachment } = useMediaCapture();
+  const { attachment, isCapturing, captureScreenshot, recordScreen, clearAttachment, pasteImage } = useMediaCapture();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -103,6 +103,7 @@ export function TicketForm({ serverUrl, onSuccess, mediaEnabled = false }: Props
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          onPaste={pasteImage}
           placeholder="What happened? What did you expect?"
           required
           rows={3}

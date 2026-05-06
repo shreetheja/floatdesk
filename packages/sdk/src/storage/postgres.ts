@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { pgTable, text, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, jsonb, integer } from 'drizzle-orm/pg-core';
 import { eq, sql } from 'drizzle-orm';
 import pg from 'pg';
-import type { StorageAdapter, Ticket, Message } from '../types.js';
+import type { StorageAdapter, Ticket, Message, FeedbackCall } from '../types.js';
 
 const ticketsTable = pgTable('floatdesk_tickets', {
   id: text('id').primaryKey(),
@@ -24,6 +24,15 @@ const messagesTable = pgTable('floatdesk_messages', {
   senderName: text('sender_name'),
   body: text('body').notNull(),
   mediaUrl: text('media_url'),
+  createdAt: text('created_at').notNull(),
+});
+
+const feedbackCallsTable = pgTable('floatdesk_feedback_calls', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull(),
+  topic: text('topic').notNull(),
+  status: text('status').notNull(),
+  creditsAwarded: integer('credits_awarded'),
   createdAt: text('created_at').notNull(),
 });
 
@@ -77,6 +86,14 @@ export class PostgresAdapter implements StorageAdapter {
         created_at TEXT NOT NULL
       );
       ALTER TABLE floatdesk_messages ADD COLUMN IF NOT EXISTS media_url TEXT;
+      CREATE TABLE IF NOT EXISTS floatdesk_feedback_calls (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        credits_awarded INTEGER,
+        created_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -149,5 +166,51 @@ export class PostgresAdapter implements StorageAdapter {
       mediaUrl: r.mediaUrl ?? undefined,
       createdAt: r.createdAt,
     }));
+  }
+
+  async createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall> {
+    const call: FeedbackCall = { ...data, id: randomUUID(), createdAt: new Date().toISOString() };
+    await this.db.insert(feedbackCallsTable).values({
+      id: call.id,
+      email: call.email,
+      topic: call.topic,
+      status: call.status,
+      creditsAwarded: call.creditsAwarded ?? null,
+      createdAt: call.createdAt,
+    });
+    return call;
+  }
+
+  async getFeedbackCall(id: string): Promise<FeedbackCall | null> {
+    const rows = await this.db.select().from(feedbackCallsTable).where(eq(feedbackCallsTable.id, id));
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      email: row.email,
+      topic: row.topic,
+      status: row.status as FeedbackCall['status'],
+      creditsAwarded: row.creditsAwarded ?? undefined,
+      createdAt: row.createdAt,
+    };
+  }
+
+  async updateFeedbackCall(id: string, data: Partial<Pick<FeedbackCall, 'status' | 'creditsAwarded'>>): Promise<FeedbackCall> {
+    await this.db.update(feedbackCallsTable)
+      .set({
+        ...(data.status !== undefined ? { status: data.status } : {}),
+        ...(data.creditsAwarded !== undefined ? { creditsAwarded: data.creditsAwarded } : {}),
+      })
+      .where(eq(feedbackCallsTable.id, id));
+    const updated = await this.getFeedbackCall(id);
+    if (!updated) throw new Error(`FeedbackCall not found: ${id}`);
+    return updated;
+  }
+
+  async getCredits(email: string): Promise<number> {
+    const rows = await this.db.select({ creditsAwarded: feedbackCallsTable.creditsAwarded })
+      .from(feedbackCallsTable)
+      .where(eq(feedbackCallsTable.email, email));
+    return rows.reduce((sum, r) => sum + (r.creditsAwarded ?? 0), 0);
   }
 }

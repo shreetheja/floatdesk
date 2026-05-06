@@ -52,5 +52,14 @@ export function useMediaCapture() {
     setAttachment(null);
   }, [attachment]);
 
-  return { attachment, isCapturing, captureScreenshot, recordScreen, clearAttachment };
+  const pasteImage = useCallback((e: React.ClipboardEvent) => {
+    const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
+    if (!item) return;
+    const blob = item.getAsFile();
+    if (!blob) return;
+    e.preventDefault();
+    setAttachment({ kind: 'screenshot', blob, previewUrl: URL.createObjectURL(blob) });
+  }, []);
+
+  return { attachment, isCapturing, captureScreenshot, recordScreen, clearAttachment, pasteImage };
 }

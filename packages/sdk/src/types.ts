@@ -26,6 +26,10 @@ export interface StorageAdapter {
   findTicketByChannelRef(channelRef: string): Promise<Ticket | null>;
   appendMessage(ticketId: string, msg: Omit<Message, 'id' | 'createdAt'>): Promise<Message>;
   getMessages(ticketId: string): Promise<Message[]>;
+  createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall>;
+  getFeedbackCall(id: string): Promise<FeedbackCall | null>;
+  updateFeedbackCall(id: string, data: Partial<Pick<FeedbackCall, 'status' | 'creditsAwarded'>>): Promise<FeedbackCall>;
+  getCredits(email: string): Promise<number>;
 }
 
 /** Framework-agnostic webhook request — populate from Express, Hono, or any other framework. */
@@ -54,8 +58,23 @@ export interface MediaProvider {
   upload(file: { buffer: Buffer; mimetype: string; filename: string }): Promise<string>;
 }
 
+export interface FeedbackCall {
+  id: string;
+  email: string;
+  topic: string;
+  status: 'pending' | 'credited' | 'dismissed';
+  creditsAwarded?: number;
+  createdAt: string;
+}
+
+export interface CallConfig {
+  bookingUrl: string;
+  creditReward?: number;
+}
+
 export interface SupportServerOptions {
   storage: StorageAdapter;
   channels: ChannelAdapter[];
   media?: MediaProvider;
+  call?: CallConfig;
 }

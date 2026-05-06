@@ -1,26 +1,33 @@
 import { WebClient } from '@slack/web-api';
 import type { Block, KnownBlock } from '@slack/web-api';
 import crypto from 'crypto';
-import type { ChannelAdapter, StorageAdapter, Ticket, WebhookRequest, WebhookResponse } from '../types.js';
+import type { ChannelAdapter, StorageAdapter, Ticket, FeedbackCall, CallConfig, WebhookRequest, WebhookResponse } from '../types.js';
 
 export interface SlackChannelOptions {
   botToken: string;
   /** Only required for agent reply sync via Slack Events API webhook. */
   signingSecret?: string;
   channelId: string;
+  call?: CallConfig;
 }
 
 export class SlackChannel implements ChannelAdapter {
   readonly name = 'slack';
   readonly webhookPath = '/webhook/slack';
-  private client: WebClient;
+  readonly client: WebClient;
   private signingSecret: string | undefined;
   private channelId: string;
+  private callConfig: CallConfig | undefined;
 
   constructor(opts: SlackChannelOptions) {
     this.client = new WebClient(opts.botToken);
     this.signingSecret = opts.signingSecret;
     this.channelId = opts.channelId;
+    this.callConfig = opts.call;
+  }
+
+  setCallConfig(config: CallConfig): void {
+    this.callConfig = config;
   }
 
   async postTicket(ticket: Ticket, mediaUrl?: string): Promise<string> {
@@ -68,15 +75,61 @@ export class SlackChannel implements ChannelAdapter {
     if (!res.ok) throw new Error(`Slack thread reply failed: ${res.error}`);
   }
 
+  async postCallRequest(call: FeedbackCall, config: CallConfig): Promise<void> {
+    const reward = config.creditReward ?? 100;
+    await this.client.chat.postMessage({
+      channel: this.channelId,
+      text: `📞 Feedback call from ${call.email}`,
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `📞 *Feedback call request*\n*From:* ${call.email}\n*Topic:* ${call.topic}\n*Booking:* ${config.bookingUrl}`,
+          },
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              style: 'primary',
+              text: { type: 'plain_text', text: `✅ Award ${reward} Credits` },
+              action_id: 'award_credits',
+              value: call.id,
+            },
+            {
+              type: 'button',
+              style: 'danger',
+              text: { type: 'plain_text', text: '❌ Dismiss' },
+              action_id: 'dismiss_call',
+              value: call.id,
+            },
+          ],
+        },
+      ],
+    });
+  }
+
   async handleWebhook(req: WebhookRequest, storage: StorageAdapter): Promise<WebhookResponse> {
     if (!this.verifySignature(req)) {
       return { status: 401, body: { error: 'Invalid signature' } };
     }
 
-    const body = req.body as Record<string, unknown>;
+    // Slack interactive payloads arrive as URL-encoded { payload: "<json>" }
+    const rawBody = req.body as Record<string, unknown>;
+    let body = rawBody;
+    if (typeof rawBody['payload'] === 'string') {
+      try { body = JSON.parse(rawBody['payload']) as Record<string, unknown>; } catch { /* ignore */ }
+    }
 
     if (body['type'] === 'url_verification') {
       return { status: 200, body: { challenge: body['challenge'] } };
+    }
+
+    if (body['type'] === 'block_actions') {
+      this.processBlockAction(body, storage).catch((err) => console.error('Slack block_action error:', err));
+      return { status: 200, body: '' };
     }
 
     // Fire and forget — respond immediately, process async
@@ -93,6 +146,48 @@ export class SlackChannel implements ChannelAdapter {
     const base = `v0:${timestamp}:${req.rawBody}`;
     const hmac = 'v0=' + crypto.createHmac('sha256', this.signingSecret).update(base).digest('hex');
     return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(slackSig));
+  }
+
+  private async processBlockAction(body: Record<string, unknown>, storage: StorageAdapter): Promise<void> {
+    const actions = body['actions'] as Array<Record<string, unknown>> | undefined;
+    const action = actions?.[0];
+    if (!action) return;
+
+    const callId = String(action['value'] ?? '');
+    const actionId = String(action['action_id'] ?? '');
+    const message = body['message'] as Record<string, unknown> | undefined;
+    const channel = body['channel'] as Record<string, unknown> | undefined;
+    const messageTs = String(message?.['ts'] ?? '');
+    const channelId = String(channel?.['id'] ?? this.channelId);
+
+    const call = await storage.getFeedbackCall(callId);
+    if (!call || call.status !== 'pending') return;
+
+    const reward = this.callConfig?.creditReward ?? 100;
+
+    if (actionId === 'award_credits') {
+      await storage.updateFeedbackCall(callId, { status: 'credited', creditsAwarded: reward });
+      await this.client.chat.update({
+        channel: channelId,
+        ts: messageTs,
+        text: `✅ ${reward} credits awarded to ${call.email}`,
+        blocks: [{
+          type: 'section',
+          text: { type: 'mrkdwn', text: `✅ *${reward} credits awarded* to ${call.email}\n*Topic:* ${call.topic}` },
+        }],
+      });
+    } else if (actionId === 'dismiss_call') {
+      await storage.updateFeedbackCall(callId, { status: 'dismissed' });
+      await this.client.chat.update({
+        channel: channelId,
+        ts: messageTs,
+        text: `❌ Call request from ${call.email} dismissed`,
+        blocks: [{
+          type: 'section',
+          text: { type: 'mrkdwn', text: `❌ *Dismissed* — ${call.email}\n*Topic:* ${call.topic}` },
+        }],
+      });
+    }
   }
 
   private async processEvent(body: Record<string, unknown>, storage: StorageAdapter): Promise<void> {

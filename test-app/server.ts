@@ -80,6 +80,14 @@ const consoleChannel: ChannelAdapter = {
 channels.push(consoleChannel);
 
 // ---------------------------------------------------------------------------
+// Feedback Call Booking
+// ---------------------------------------------------------------------------
+const call = process.env['MEETING_URL'] ? {
+  bookingUrl: process.env['MEETING_URL'],
+  creditReward: parseInt(process.env['CALL_CREDIT_REWARD'] ?? '100', 10),
+} : undefined;
+
+// ---------------------------------------------------------------------------
 // Media — GCS takes priority, then S3, otherwise no media uploads
 // ---------------------------------------------------------------------------
 function buildMedia() {
@@ -94,7 +102,7 @@ function buildMedia() {
             private_key:  process.env['GCS_PRIVATE_KEY'].replace(/\\n/g, '\n'),
           } }
         : {}),
-      ...(process.env['GCS_PUBLIC_BASE_URL'] ? { publicBaseUrl: process.env['GCS_PUBLIC_BASE_URL'] } : {}),
+      ...(process.env['GCS_SIGNED_URL_EXPIRES_IN'] ? { signedUrlExpiresIn: parseInt(process.env['GCS_SIGNED_URL_EXPIRES_IN'], 10) } : {}),
     });
   }
 
@@ -117,7 +125,7 @@ const media = buildMedia();
 // ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
-const app = createSupportServer({ storage, channels, media });
+const app = createSupportServer({ storage, channels, media, call });
 const PORT = parseInt(process.env['PORT'] ?? '3003', 10);
 
 const storageLabel = storage instanceof PostgresAdapter ? `Postgres (${process.env['DATABASE_URL']!.replace(/:\/\/[^@]+@/, '://<credentials>@')})` : 'Memory (resets on restart)';

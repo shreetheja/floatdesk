@@ -23,7 +23,7 @@ export function ThreadView({ serverUrl, ticketId, title, mediaEnabled = false }:
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { attachment, isCapturing, captureScreenshot, recordScreen, clearAttachment } = useMediaCapture();
+  const { attachment, isCapturing, captureScreenshot, recordScreen, clearAttachment, pasteImage } = useMediaCapture();
 
   useEffect(() => {
     let active = true;
@@ -152,6 +152,7 @@ export function ThreadView({ serverUrl, ticketId, title, mediaEnabled = false }:
           <input
             value={reply}
             onChange={(e) => setReply(e.target.value)}
+            onPaste={pasteImage}
             placeholder="Reply…"
             style={{ flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#fff', outline: 'none' }}
           />

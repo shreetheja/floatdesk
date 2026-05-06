@@ -1,9 +1,10 @@
 import { randomUUID } from 'crypto';
-import type { StorageAdapter, Ticket, Message } from '../types.js';
+import type { StorageAdapter, Ticket, Message, FeedbackCall } from '../types.js';
 
 export class MemoryAdapter implements StorageAdapter {
   private tickets = new Map<string, Ticket>();
   private messages = new Map<string, Message[]>();
+  private feedbackCalls = new Map<string, FeedbackCall>();
 
   async createTicket(data: Omit<Ticket, 'id' | 'createdAt'>): Promise<Ticket> {
     const ticket: Ticket = { ...data, id: randomUUID(), createdAt: new Date().toISOString() };
@@ -33,5 +34,31 @@ export class MemoryAdapter implements StorageAdapter {
 
   async getMessages(ticketId: string): Promise<Message[]> {
     return this.messages.get(ticketId) ?? [];
+  }
+
+  async createFeedbackCall(data: Omit<FeedbackCall, 'id' | 'createdAt'>): Promise<FeedbackCall> {
+    const call: FeedbackCall = { ...data, id: randomUUID(), createdAt: new Date().toISOString() };
+    this.feedbackCalls.set(call.id, call);
+    return call;
+  }
+
+  async getFeedbackCall(id: string): Promise<FeedbackCall | null> {
+    return this.feedbackCalls.get(id) ?? null;
+  }
+
+  async updateFeedbackCall(id: string, data: Partial<Pick<FeedbackCall, 'status' | 'creditsAwarded'>>): Promise<FeedbackCall> {
+    const call = this.feedbackCalls.get(id);
+    if (!call) throw new Error(`FeedbackCall not found: ${id}`);
+    const updated = { ...call, ...data };
+    this.feedbackCalls.set(id, updated);
+    return updated;
+  }
+
+  async getCredits(email: string): Promise<number> {
+    let total = 0;
+    for (const call of this.feedbackCalls.values()) {
+      if (call.email === email && call.creditsAwarded) total += call.creditsAwarded;
+    }
+    return total;
   }
 }

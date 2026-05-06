@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bug, X, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { Bug, X, ChevronLeft, ChevronRight, Plus, Sparkles, Phone } from 'lucide-react';
 import { TicketForm } from './TicketForm.js';
 import { ThreadView } from './ThreadView.js';
+import { BookCallView } from './BookCallView.js';
 
 interface Props {
   serverUrl: string;
@@ -15,7 +16,7 @@ interface StoredTicket {
   createdAt: string;
 }
 
-type View = 'list' | 'form' | 'thread';
+type View = 'list' | 'form' | 'thread' | 'call';
 
 const STORAGE_KEY = 'floatdesk_tickets';
 
@@ -46,11 +47,16 @@ export function SupportWidget({ serverUrl }: Props) {
   const [thread, setThread] = useState<{ ticketId: string; title: string } | null>(null);
   const [tickets, setTickets] = useState<StoredTicket[]>([]);
   const [mediaEnabled, setMediaEnabled] = useState(false);
+  const [callEnabled, setCallEnabled] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`${serverUrl}/health`)
       .then((r) => r.json())
-      .then((d: { media?: boolean }) => setMediaEnabled(Boolean(d.media)))
+      .then((d: { media?: boolean; call?: boolean }) => {
+        setMediaEnabled(Boolean(d.media));
+        setCallEnabled(Boolean(d.call));
+      })
       .catch(() => {});
   }, [serverUrl]);
 
@@ -59,6 +65,14 @@ export function SupportWidget({ serverUrl }: Props) {
     setTickets(saved);
     setView(saved.length > 0 ? 'list' : 'form');
     setOpen(true);
+
+    const email = localStorage.getItem('floatdesk_email');
+    if (email) {
+      fetch(`${serverUrl}/api/credits/${encodeURIComponent(email)}`)
+        .then((r) => r.json())
+        .then((d: { balance: number }) => setCredits(d.balance > 0 ? d.balance : null))
+        .catch(() => {});
+    }
   }
 
   function handleSuccess(ticketId: string, title: string, type: 'bug' | 'feature') {
@@ -78,11 +92,12 @@ export function SupportWidget({ serverUrl }: Props) {
     setView(tickets.length > 0 ? 'list' : 'form');
   }
 
-  const showBack = view === 'thread' || (view === 'form' && tickets.length > 0);
+  const showBack = view === 'thread' || view === 'call' || (view === 'form' && tickets.length > 0);
 
   const headerTitle =
     view === 'list'   ? 'Your Tickets' :
     view === 'thread' ? 'Support Thread' :
+    view === 'call'   ? 'Book a Call' :
                         'Report an Issue';
 
   const panelStyle: React.CSSProperties = {
@@ -123,6 +138,12 @@ export function SupportWidget({ serverUrl }: Props) {
 
               <span style={{ fontSize: 14, fontWeight: 600, color: '#fff', flex: 1 }}>{headerTitle}</span>
 
+              {view === 'list' && credits !== null && (
+                <span style={{ fontSize: 12, color: '#6b9a00', fontWeight: 600, background: 'rgba(107,154,0,0.12)', border: '1px solid rgba(107,154,0,0.25)', borderRadius: 6, padding: '2px 8px' }}>
+                  🎁 {credits}
+                </span>
+              )}
+
               {view === 'list' && (
                 <button
                   onClick={() => setView('form')}
@@ -141,25 +162,43 @@ export function SupportWidget({ serverUrl }: Props) {
             {/* Body */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {view === 'list' && (
-                <div style={{ overflowY: 'auto', flex: 1 }}>
-                  {tickets.length === 0 ? (
-                    <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.35)', padding: '32px 16px' }}>No tickets yet</p>
-                  ) : tickets.map((t) => (
+                <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ flex: 1 }}>
+                    {tickets.length === 0 ? (
+                      <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.35)', padding: '32px 16px' }}>No tickets yet</p>
+                    ) : tickets.map((t) => (
+                      <button
+                        key={t.ticketId}
+                        onClick={() => openThread(t)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 16px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 6, background: t.type === 'bug' ? 'rgba(239,68,68,0.15)' : 'rgba(107,154,0,0.15)' }}>
+                          {t.type === 'bug' ? <Bug size={13} color="#ef4444" /> : <Sparkles size={13} color="#6b9a00" />}
+                        </span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#e5e5e5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                          <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{timeAgo(t.createdAt)}</span>
+                        </span>
+                        <ChevronRight size={14} color="rgba(255,255,255,0.25)" style={{ flexShrink: 0 }} />
+                      </button>
+                    ))}
+                  </div>
+
+                  {callEnabled && (
                     <button
-                      key={t.ticketId}
-                      onClick={() => openThread(t)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 16px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', textAlign: 'left' }}
+                      onClick={() => setView('call')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '14px 16px', background: 'rgba(107,154,0,0.07)', border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', textAlign: 'left' }}
                     >
-                      <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 6, background: t.type === 'bug' ? 'rgba(239,68,68,0.15)' : 'rgba(107,154,0,0.15)' }}>
-                        {t.type === 'bug' ? <Bug size={13} color="#ef4444" /> : <Sparkles size={13} color="#6b9a00" />}
+                      <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 6, background: 'rgba(107,154,0,0.15)' }}>
+                        <Phone size={13} color="#6b9a00" />
                       </span>
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#e5e5e5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
-                        <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{timeAgo(t.createdAt)}</span>
+                      <span style={{ flex: 1 }}>
+                        <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#e5e5e5' }}>Book a Feedback Call</span>
+                        <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>Earn credits for great feedback</span>
                       </span>
                       <ChevronRight size={14} color="rgba(255,255,255,0.25)" style={{ flexShrink: 0 }} />
                     </button>
-                  ))}
+                  )}
                 </div>
               )}
 
@@ -171,6 +210,12 @@ export function SupportWidget({ serverUrl }: Props) {
 
               {view === 'thread' && thread && (
                 <ThreadView serverUrl={serverUrl} ticketId={thread.ticketId} title={thread.title} mediaEnabled={mediaEnabled} />
+              )}
+
+              {view === 'call' && (
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                  <BookCallView serverUrl={serverUrl} />
+                </div>
               )}
             </div>
           </motion.div>
